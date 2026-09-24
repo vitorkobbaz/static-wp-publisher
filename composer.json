@@ -29,10 +29,11 @@
     }
   },
   "scripts": {
+    "syntax": "php tools/php-syntax.php",
     "test": "phpunit",
     "lint": "phpcs",
     "analyse": "phpstan analyse",
-    "check": ["@lint", "@analyse", "@test"]
+    "check": ["@syntax", "@lint", "@analyse", "@test"]
   },
   "config": {
     "allow-plugins": {

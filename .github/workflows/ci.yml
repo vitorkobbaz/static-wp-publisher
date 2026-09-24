@@ -35,6 +35,7 @@ jobs:
           coverage: none
           tools: composer:v2
       - run: composer install --no-interaction --prefer-dist
+      - run: composer validate --strict
       - run: composer check
       - name: Plugin headers
         run: |

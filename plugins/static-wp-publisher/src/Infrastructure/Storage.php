@@ -80,7 +80,7 @@ final class Storage {
 	}
 
 	private function protect( string $directory ): void {
-		$rules = "Options -Indexes\n<FilesMatch \\".*\\">\nRequire all denied\n</FilesMatch>\n";
+		$rules = "Options -Indexes\n<FilesMatch \".*\">\nRequire all denied\n</FilesMatch>\n";
 		if ( ! is_file( $directory . '/.htaccess' ) ) {
 			file_put_contents( $directory . '/.htaccess', $rules, LOCK_EX );
 		}

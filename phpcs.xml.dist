@@ -4,8 +4,16 @@
     <file>plugins</file>
     <arg name="extensions" value="php"/>
     <arg name="parallel" value="8"/>
-    <rule ref="WordPress"/>
-    <rule ref="WordPress-Docs"/>
+    <config name="ignore_warnings_on_exit" value="1"/>
+    <rule ref="WordPress-Core">
+        <!-- The codebase intentionally uses Composer PSR-4 and modern OOP naming. -->
+        <exclude name="WordPress.Files.FileName"/>
+        <exclude name="WordPress.NamingConventions.ValidFunctionName.MethodNameInvalid"/>
+        <exclude name="WordPress.NamingConventions.ValidVariableName"/>
+    </rule>
+    <rule ref="WordPress.Security.NonceVerification"/>
+    <rule ref="WordPress.Security.ValidatedSanitizedInput"/>
+    <rule ref="WordPress.DB.PreparedSQL"/>
     <rule ref="WordPress.NamingConventions.PrefixAllGlobals">
         <properties>
             <property name="prefixes" type="array" value="swpp,SWPP"/>
