@@ -1,0 +1,20 @@
+{
+  "name": "static-wp-publisher",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Development tooling for Static WP Publisher.",
+  "scripts": {
+    "env:start": "wp-env start",
+    "env:stop": "wp-env stop",
+    "test:js": "wp-scripts test-unit-js --passWithNoTests",
+    "test:e2e": "playwright test",
+    "lint:js": "wp-scripts lint-js \"plugins/**/*.js\" --no-error-on-unmatched-pattern",
+    "packages-update": "wp-scripts packages-update"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "@wordpress/env": "^10.33.0",
+    "@wordpress/scripts": "^30.25.0",
+    "typescript": "~5.9.3"
+  }
+}
