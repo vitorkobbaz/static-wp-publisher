@@ -1,0 +1,79 @@
+name: WordPress E2E
+
+on:
+  push:
+    branches: [main, "feature/**", "codex/**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  playwright:
+    name: WordPress ${{ matrix.wordpress }} / Playwright
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        wordpress:
+          - "6.5.12"
+          - "7.1.2"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Pin WordPress version
+        env:
+          WORDPRESS_VERSION: ${{ matrix.wordpress }}
+        run: |
+          jq --arg core "WordPress/WordPress#$WORDPRESS_VERSION" '.core = $core' .wp-env.json > .wp-env.ci.json
+          mv .wp-env.ci.json .wp-env.json
+
+      - name: Start WordPress
+        run: npm run env:start
+
+      - name: Run Playwright suite
+        run: npm run test:e2e
+
+      - name: Collect failure diagnostics
+        if: failure()
+        run: |
+          mkdir -p e2e-artifacts
+          npx wp-env logs > e2e-artifacts/wp-env.log 2>&1 || true
+          docker ps -a > e2e-artifacts/docker-containers.txt 2>&1 || true
+          docker info > e2e-artifacts/docker-info.txt 2>&1 || true
+
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-wordpress-${{ matrix.wordpress }}
+          if-no-files-found: ignore
+          retention-days: 14
+          path: |
+            e2e-artifacts/
+            playwright-report/
+            test-results/
+
+      - name: Stop WordPress
+        if: always()
+        run: npm run env:stop

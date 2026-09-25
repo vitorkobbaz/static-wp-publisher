@@ -1,10 +1,21 @@
 {
   "core": "WordPress/WordPress#7.1.2",
   "phpVersion": "8.3",
-  "plugins": ["./plugins/static-wp-publisher", "./plugins/static-wp-publisher-export"],
+  "plugins": [
+    "./plugins/static-wp-publisher",
+    "./plugins/static-wp-publisher-export"
+  ],
   "config": {
     "WP_DEBUG": true,
     "SCRIPT_DEBUG": true,
     "SWPP_EXPORT_DEV_MODE": true
+  },
+  "env": {
+    "tests": {
+      "plugins": [
+        "./plugins/static-wp-publisher",
+        "./tests/e2e/fixtures/swpp-e2e-support"
+      ]
+    }
   }
 }

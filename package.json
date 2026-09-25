@@ -8,6 +8,7 @@
     "env:stop": "wp-env stop",
     "test:js": "wp-scripts test-unit-js --passWithNoTests",
     "test:e2e": "playwright test",
+    "test:e2e:debug": "playwright test --debug",
     "lint:js": "wp-scripts lint-js \"plugins/**/*.js\" --no-error-on-unmatched-pattern",
     "packages-update": "wp-scripts packages-update"
   },
