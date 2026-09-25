@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace SWPP\Export\Admin;
 
+use InvalidArgumentException;
 use SWPP\Export\Application\Exporter;
 use SWPP\Export\Domain\ExportRequest;
 use SWPP\Export\Infrastructure\Entitlement;
@@ -45,10 +46,25 @@ final class ExportPage {
 				<div class="notice notice-warning"><p><?php esc_html_e( 'A valid Individual Export entitlement is required. Development environments may set SWPP_EXPORT_DEV_MODE.', 'static-wp-publisher-export' ); ?></p></div>
 			<?php endif; ?>
 			<?php if ( is_array( $result ) ) : ?>
-				<div class="notice <?php echo ! empty( $result['success'] ) ? 'notice-success' : 'notice-error'; ?>"><p><?php echo esc_html( (string) $result['message'] ); ?></p></div>
-				<?php if ( ! empty( $result['directory'] ) ) : ?><p><strong><?php esc_html_e( 'Directory:', 'static-wp-publisher-export' ); ?></strong> <code><?php echo esc_html( (string) $result['directory'] ); ?></code></p><?php endif; ?>
-				<?php if ( ! empty( $result['zip'] ) ) : ?><p><strong><?php esc_html_e( 'ZIP:', 'static-wp-publisher-export' ); ?></strong> <code><?php echo esc_html( (string) $result['zip'] ); ?></code></p><?php endif; ?>
-				<?php if ( ! empty( $result['warnings'] ) ) : ?><details><summary><?php esc_html_e( 'Dynamic limitations detected', 'static-wp-publisher-export' ); ?></summary><ul><?php foreach ( $result['warnings'] as $warning ) : ?><li><?php echo esc_html( (string) $warning ); ?></li><?php endforeach; ?></ul></details><?php endif; ?>
+				<div class="notice <?php echo esc_attr( ! empty( $result['success'] ) ? 'notice-success' : 'notice-error' ); ?>">
+					<p><?php echo esc_html( (string) $result['message'] ); ?></p>
+				</div>
+				<?php if ( ! empty( $result['directory'] ) ) : ?>
+					<p><strong><?php esc_html_e( 'Directory:', 'static-wp-publisher-export' ); ?></strong> <code><?php echo esc_html( (string) $result['directory'] ); ?></code></p>
+				<?php endif; ?>
+				<?php if ( ! empty( $result['zip'] ) ) : ?>
+					<p><strong><?php esc_html_e( 'ZIP:', 'static-wp-publisher-export' ); ?></strong> <code><?php echo esc_html( (string) $result['zip'] ); ?></code></p>
+				<?php endif; ?>
+				<?php if ( ! empty( $result['warnings'] ) ) : ?>
+					<details>
+						<summary><?php esc_html_e( 'Dynamic limitations detected', 'static-wp-publisher-export' ); ?></summary>
+						<ul>
+							<?php foreach ( $result['warnings'] as $warning ) : ?>
+								<li><?php echo esc_html( (string) $warning ); ?></li>
+							<?php endforeach; ?>
+						</ul>
+					</details>
+				<?php endif; ?>
 			<?php endif; ?>
 
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
@@ -74,16 +90,35 @@ final class ExportPage {
 		if ( ! $this->entitlement->isAllowed() ) {
 			wp_die( esc_html__( 'A valid export entitlement is required.', 'static-wp-publisher-export' ) );
 		}
-		$target = esc_url_raw( (string) ( $_POST['target_base'] ?? '' ) );
-		$mode   = sanitize_key( (string) ( $_POST['mode'] ?? '' ) );
+		$target = esc_url_raw( wp_unslash( (string) ( $_POST['target_base'] ?? '' ) ) );
+		$mode   = sanitize_key( wp_unslash( (string) ( $_POST['mode'] ?? '' ) ) );
 		if ( '' === $target ) {
 			$mode = 'relocatable';
 		}
-		$request = new ExportRequest( $mode, $target, ! empty( $_POST['noindex'] ), ! empty( $_POST['create_zip'] ) );
-		$result  = $this->exporter->export( $request );
+		try {
+			$request = new ExportRequest( $mode, $target, ! empty( $_POST['noindex'] ), ! empty( $_POST['create_zip'] ) );
+			$result  = $this->exporter->export( $request );
+		} catch ( InvalidArgumentException $error ) {
+			set_transient(
+				'swpp_export_result_' . get_current_user_id(),
+				array(
+					'success' => false,
+					'message' => $error->getMessage(),
+				),
+				MINUTE_IN_SECONDS
+			);
+			wp_safe_redirect( admin_url( 'admin.php?page=static-wp-publisher-export' ) );
+			exit;
+		}
 		set_transient(
 			'swpp_export_result_' . get_current_user_id(),
-			array( 'success' => $result->success, 'message' => $result->message, 'directory' => $result->directory, 'zip' => $result->zip, 'warnings' => $result->warnings ),
+			array(
+				'success'   => $result->success,
+				'message'   => $result->message,
+				'directory' => $result->directory,
+				'zip'       => $result->zip,
+				'warnings'  => $result->warnings,
+			),
 			MINUTE_IN_SECONDS
 		);
 		wp_safe_redirect( admin_url( 'admin.php?page=static-wp-publisher-export' ) );

@@ -15,5 +15,6 @@ final readonly class QueueJob {
 		public string $url,
 		public string $reason,
 		public int $attempts,
+		public string $lockToken,
 	) {}
 }

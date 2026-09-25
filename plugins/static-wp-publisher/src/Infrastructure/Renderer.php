@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace SWPP\Core\Infrastructure;
 
+use SWPP\Core\Domain\Origin;
 use WP_Error;
 
 final class Renderer {
@@ -16,9 +17,7 @@ final class Renderer {
 	 * @return array{status:int,headers:array<string,string|string[]>,body:string}|WP_Error
 	 */
 	public function render( string $url ): array|WP_Error {
-		$target = wp_parse_url( $url );
-		$home   = wp_parse_url( home_url( '/' ) );
-		if ( empty( $target['host'] ) || empty( $home['host'] ) || strtolower( (string) $target['host'] ) !== strtolower( (string) $home['host'] ) ) {
+		if ( ! Origin::matches( $url, home_url( '/' ) ) ) {
 			return new WP_Error( 'swpp_external_origin', 'Renderer only accepts the WordPress origin.' );
 		}
 
@@ -40,11 +39,16 @@ final class Renderer {
 
 		$headers = array();
 		foreach ( wp_remote_retrieve_headers( $response ) as $name => $value ) {
-			$headers[ strtolower( (string) $name ) ] = $value;
+			if ( is_array( $value ) ) {
+				$headers[ strtolower( (string) $name ) ] = array_map( 'strval', $value );
+			} elseif ( is_scalar( $value ) ) {
+				$headers[ strtolower( (string) $name ) ] = (string) $value;
+			}
 		}
+		$status = wp_remote_retrieve_response_code( $response );
 
 		return array(
-			'status'  => wp_remote_retrieve_response_code( $response ),
+			'status'  => is_numeric( $status ) ? (int) $status : 0,
 			'headers' => $headers,
 			'body'    => wp_remote_retrieve_body( $response ),
 		);

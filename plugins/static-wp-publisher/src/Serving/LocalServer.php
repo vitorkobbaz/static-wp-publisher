@@ -24,15 +24,17 @@ final class LocalServer {
 		if ( empty( $settings['enabled'] ) || defined( 'SWPP_DISABLE_STATIC' ) && SWPP_DISABLE_STATIC ) {
 			return;
 		}
-		if ( 'GET' !== strtoupper( (string) ( $_SERVER['REQUEST_METHOD'] ?? 'GET' ) ) || is_user_logged_in() || is_admin() || wp_doing_ajax() ) {
+		$request_method = sanitize_text_field( wp_unslash( (string) ( $_SERVER['REQUEST_METHOD'] ?? 'GET' ) ) );
+		if ( 'GET' !== strtoupper( $request_method ) || is_user_logged_in() || is_admin() || wp_doing_ajax() ) {
 			return;
 		}
 		if ( $this->isSignedRenderRequest() || $this->hasBypassCookie() ) {
 			return;
 		}
 
-		$request_uri = wp_unslash( (string) ( $_SERVER['REQUEST_URI'] ?? '/' ) );
-		$url         = home_url( strtok( $request_uri, '?' ) ?: '/' );
+		$request_uri  = sanitize_text_field( wp_unslash( (string) ( $_SERVER['REQUEST_URI'] ?? '/' ) ) );
+		$request_path = strtok( $request_uri, '?' );
+		$url          = home_url( false !== $request_path ? $request_path : '/' );
 		try {
 			$file = $this->storage->pathForUrl( $url );
 		} catch ( Throwable ) {
@@ -51,13 +53,13 @@ final class LocalServer {
 	}
 
 	private function isSignedRenderRequest(): bool {
-		$provided = (string) ( $_SERVER['HTTP_X_SWPP_RENDER'] ?? '' );
+		$provided = sanitize_text_field( wp_unslash( (string) ( $_SERVER['HTTP_X_SWPP_RENDER'] ?? '' ) ) );
 		if ( '' === $provided ) {
 			return false;
 		}
 
 		$home        = wp_parse_url( home_url( '/' ) );
-		$request_uri = wp_unslash( (string) ( $_SERVER['REQUEST_URI'] ?? '/' ) );
+		$request_uri = sanitize_text_field( wp_unslash( (string) ( $_SERVER['REQUEST_URI'] ?? '/' ) ) );
 		if ( empty( $home['scheme'] ) || empty( $home['host'] ) ) {
 			return false;
 		}

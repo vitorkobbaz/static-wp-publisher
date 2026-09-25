@@ -50,6 +50,7 @@ final class AdminPage {
 		$settings = get_option( 'swpp_settings', array() );
 		$enabled  = ! empty( $settings['enabled'] );
 		$next     = wp_next_scheduled( 'swpp_process_queue' );
+		$next_at  = false !== $next ? wp_date( 'Y-m-d H:i:s', $next ) : false;
 		?>
 		<div class="wrap">
 			<h1><?php esc_html_e( 'Static WP Publisher', 'static-wp-publisher' ); ?></h1>
@@ -62,7 +63,7 @@ final class AdminPage {
 				<tbody>
 					<tr><th><?php esc_html_e( 'Local static serving', 'static-wp-publisher' ); ?></th><td><?php echo $enabled ? esc_html__( 'Published', 'static-wp-publisher' ) : esc_html__( 'Preview only', 'static-wp-publisher' ); ?></td></tr>
 					<tr><th><?php esc_html_e( 'Queue', 'static-wp-publisher' ); ?></th><td><?php echo esc_html( sprintf( 'Pending: %d | Running: %d | Failed: %d | Completed: %d', $counts['pending'], $counts['running'], $counts['failed'], $counts['succeeded'] ) ); ?></td></tr>
-					<tr><th><?php esc_html_e( 'Next compatibility worker', 'static-wp-publisher' ); ?></th><td><?php echo $next ? esc_html( wp_date( 'Y-m-d H:i:s', $next ) ) : esc_html__( 'Not scheduled — configure WP-Cron or a real scheduler.', 'static-wp-publisher' ); ?></td></tr>
+					<tr><th><?php esc_html_e( 'Next compatibility worker', 'static-wp-publisher' ); ?></th><td><?php echo is_string( $next_at ) ? esc_html( $next_at ) : esc_html__( 'Not scheduled — configure WP-Cron or a real scheduler.', 'static-wp-publisher' ); ?></td></tr>
 					<tr><th><?php esc_html_e( 'Published directory', 'static-wp-publisher' ); ?></th><td><code><?php echo esc_html( $this->storage->publishedRoot() ); ?></code></td></tr>
 				</tbody>
 			</table>
@@ -88,6 +89,7 @@ final class AdminPage {
 	public function fullBuild(): void {
 		$this->authorize( 'swpp_full_build' );
 		$count = $this->inventory->enqueueAll();
+		/* translators: %d: number of URLs added to the publication queue. */
 		$this->redirect( sprintf( __( '%d URL(s) added to the publication queue.', 'static-wp-publisher' ), $count ) );
 	}
 
@@ -99,9 +101,9 @@ final class AdminPage {
 		}
 		$result = $this->publisher->publish( $job->url );
 		if ( $result->success ) {
-			$this->queue->complete( $job->id );
+			$this->queue->complete( $job );
 		} else {
-			$this->queue->fail( $job->id, $result->message );
+			$this->queue->fail( $job, $result->message );
 		}
 		$this->redirect( $result->message );
 	}
@@ -114,12 +116,12 @@ final class AdminPage {
 		$this->redirect( $settings['enabled'] ? __( 'Static serving published.', 'static-wp-publisher' ) : __( 'Dynamic WordPress restored.', 'static-wp-publisher' ) );
 	}
 
-	private function actionButton( string $action, string $label, string $class = 'button' ): void {
+	private function actionButton( string $action, string $label, string $css_class = 'button' ): void {
 		?>
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-block;margin-right:6px">
 			<input type="hidden" name="action" value="<?php echo esc_attr( $action ); ?>">
 			<?php wp_nonce_field( $action ); ?>
-			<button type="submit" class="<?php echo esc_attr( $class ); ?>"><?php echo esc_html( $label ); ?></button>
+			<button type="submit" class="<?php echo esc_attr( $css_class ); ?>"><?php echo esc_html( $label ); ?></button>
 		</form>
 		<?php
 	}

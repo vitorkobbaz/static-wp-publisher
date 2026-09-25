@@ -21,7 +21,8 @@ final class Eligibility {
 			return new PublishResult( false, sprintf( 'HTTP status %d is not publishable.', $status ) );
 		}
 
-		$content_type = strtolower( (string) ( $headers['content-type'] ?? '' ) );
+		$content_type_header = $headers['content-type'] ?? '';
+		$content_type        = strtolower( is_array( $content_type_header ) ? implode( ', ', $content_type_header ) : $content_type_header );
 		if ( ! str_contains( $content_type, 'text/html' ) ) {
 			return new PublishResult( false, 'Response is not HTML.' );
 		}

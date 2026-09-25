@@ -11,11 +11,6 @@ namespace SWPP\Core\Infrastructure;
 
 final class Activator {
 	public static function activate(): void {
-		if ( version_compare( PHP_VERSION, '8.3', '<' ) ) {
-			deactivate_plugins( plugin_basename( SWPP_FILE ) );
-			wp_die( esc_html__( 'Static WP Publisher requires PHP 8.3 or newer.', 'static-wp-publisher' ) );
-		}
-
 		( new Database() )->install();
 		( new Storage() )->ensureStructure();
 
@@ -28,7 +23,14 @@ final class Activator {
 		add_option( 'swpp_settings', $defaults, '', false );
 
 		if ( ! wp_next_scheduled( 'swpp_process_queue' ) ) {
-			wp_schedule_event( time() + MINUTE_IN_SECONDS, 'swpp_every_minute', 'swpp_process_queue' );
+			add_filter( 'cron_schedules', array( CronSchedule::class, 'add' ) );
+			$result = wp_schedule_event( time() + MINUTE_IN_SECONDS, 'swpp_every_minute', 'swpp_process_queue', array(), true );
+			remove_filter( 'cron_schedules', array( CronSchedule::class, 'add' ) );
+
+			if ( is_wp_error( $result ) ) {
+				deactivate_plugins( plugin_basename( SWPP_FILE ) );
+				wp_die( esc_html( $result->get_error_message() ) );
+			}
 		}
 	}
 

@@ -46,7 +46,13 @@ final class RestController {
 				'methods'             => 'POST',
 				'callback'            => array( $this, 'enqueue' ),
 				'permission_callback' => $permission,
-				'args'                => array( 'url' => array( 'required' => true, 'type' => 'string', 'format' => 'uri' ) ),
+				'args'                => array(
+					'url' => array(
+						'required' => true,
+						'type'     => 'string',
+						'format'   => 'uri',
+					),
+				),
 			)
 		);
 		register_rest_route(
@@ -70,12 +76,13 @@ final class RestController {
 	}
 
 	public function status(): WP_REST_Response {
+		$next_worker = wp_next_scheduled( 'swpp_process_queue' );
 		return new WP_REST_Response(
 			array(
 				'queue'          => $this->queue->counts(),
 				'published_root' => $this->storage->publishedRoot(),
 				'enabled'        => ! empty( get_option( 'swpp_settings', array() )['enabled'] ),
-				'next_worker'    => wp_next_scheduled( 'swpp_process_queue' ) ?: null,
+				'next_worker'    => false !== $next_worker ? $next_worker : null,
 			)
 		);
 	}
@@ -83,7 +90,13 @@ final class RestController {
 	public function enqueue( WP_REST_Request $request ): WP_REST_Response {
 		$url   = esc_url_raw( (string) $request->get_param( 'url' ) );
 		$added = $this->queue->enqueue( $url, 'rest' );
-		return new WP_REST_Response( array( 'queued' => $added, 'url' => $url ), $added ? 201 : 200 );
+		return new WP_REST_Response(
+			array(
+				'queued' => $added,
+				'url'    => $url,
+			),
+			$added ? 201 : 200
+		);
 	}
 
 	public function build(): WP_REST_Response {
@@ -93,10 +106,26 @@ final class RestController {
 	public function process(): WP_REST_Response {
 		$job = $this->queue->claim();
 		if ( null === $job ) {
-			return new WP_REST_Response( array( 'processed' => false, 'message' => 'Queue is empty.' ) );
+			return new WP_REST_Response(
+				array(
+					'processed' => false,
+					'message'   => 'Queue is empty.',
+				)
+			);
 		}
 		$result = $this->publisher->publish( $job->url );
-		$result->success ? $this->queue->complete( $job->id ) : $this->queue->fail( $job->id, $result->message );
-		return new WP_REST_Response( array( 'processed' => true, 'success' => $result->success, 'message' => $result->message, 'url' => $job->url ) );
+		if ( $result->success ) {
+			$this->queue->complete( $job );
+		} else {
+			$this->queue->fail( $job, $result->message );
+		}
+		return new WP_REST_Response(
+			array(
+				'processed' => true,
+				'success'   => $result->success,
+				'message'   => $result->message,
+				'url'       => $job->url,
+			)
+		);
 	}
 }

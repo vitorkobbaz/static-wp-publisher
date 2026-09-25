@@ -25,12 +25,12 @@ define( 'SWPP_EXPORT_FILE', __FILE__ );
 define( 'SWPP_EXPORT_DIR', plugin_dir_path( __FILE__ ) );
 
 spl_autoload_register(
-	static function ( string $class ): void {
+	static function ( string $class_name ): void {
 		$prefix = 'SWPP\\Export\\';
-		if ( ! str_starts_with( $class, $prefix ) ) {
+		if ( ! str_starts_with( $class_name, $prefix ) ) {
 			return;
 		}
-		$file = SWPP_EXPORT_DIR . 'src/' . str_replace( '\\', '/', substr( $class, strlen( $prefix ) ) ) . '.php';
+		$file = SWPP_EXPORT_DIR . 'src/' . str_replace( '\\', '/', substr( $class_name, strlen( $prefix ) ) ) . '.php';
 		if ( is_file( $file ) ) {
 			require_once $file;
 		}

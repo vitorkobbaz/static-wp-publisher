@@ -27,13 +27,13 @@ define( 'SWPP_FILE', __FILE__ );
 define( 'SWPP_DIR', plugin_dir_path( __FILE__ ) );
 
 spl_autoload_register(
-	static function ( string $class ): void {
+	static function ( string $class_name ): void {
 		$prefix = 'SWPP\\Core\\';
-		if ( ! str_starts_with( $class, $prefix ) ) {
+		if ( ! str_starts_with( $class_name, $prefix ) ) {
 			return;
 		}
 
-		$relative = substr( $class, strlen( $prefix ) );
+		$relative = substr( $class_name, strlen( $prefix ) );
 		$file     = SWPP_DIR . 'src/' . str_replace( '\\', '/', $relative ) . '.php';
 		if ( is_file( $file ) ) {
 			require_once $file;

@@ -43,7 +43,7 @@ final class Exporter {
 
 			$pages    = array();
 			$warnings = $this->copyAndRewrite( $source, $export_root, $request, $pages );
-			$warnings = array_merge( $warnings, $this->assets->collect( $pages, $export_root ) );
+			$warnings = array_values( array_unique( array_merge( $warnings, $this->assets->collect( $pages, $export_root ) ) ) );
 			$this->rewriteStylesheets( $export_root, $request );
 			file_put_contents( $export_root . '/README-DEPLOYMENT.txt', $this->deploymentReadme( $request, $warnings ), LOCK_EX );
 			$manifest = $this->manifest( $export_root, $request, $warnings );
@@ -75,12 +75,16 @@ final class Exporter {
 		}
 	}
 
-	/** @return list<string> */
+	/**
+	 * @param list<array{html:string,relative:string}> $pages Original pages for asset collection.
+	 * @return list<string>
+	 */
 	private function copyAndRewrite( string $source, string $destination, ExportRequest $request, array &$pages ): array {
-		$warnings  = array();
-		$seen      = array();
-		$source    = rtrim( realpath( $source ) ?: $source, '/\\' );
-		$iterator  = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $source, FilesystemIterator::SKIP_DOTS ), RecursiveIteratorIterator::SELF_FIRST );
+		$warnings    = array();
+		$seen        = array();
+		$real_source = realpath( $source );
+		$source      = rtrim( false !== $real_source ? $real_source : $source, '/\\' );
+		$iterator    = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $source, FilesystemIterator::SKIP_DOTS ), RecursiveIteratorIterator::SELF_FIRST );
 		foreach ( $iterator as $item ) {
 			if ( $item->isLink() ) {
 				throw new RuntimeException( 'Symbolic links are not permitted in portable exports.' );
@@ -101,14 +105,24 @@ final class Exporter {
 			wp_mkdir_p( dirname( $target ) );
 			$extension = strtolower( pathinfo( $relative, PATHINFO_EXTENSION ) );
 			if ( 'html' === $extension ) {
-				$html       = (string) file_get_contents( $absolute );
-				$pages[]    = $html;
-				$warnings   = array_merge( $warnings, $this->dynamicWarnings( $html, $relative ) );
-				$rewritten  = $this->rewriter->rewriteHtml( $html, $relative, home_url( '/' ), $request->mode, $request->targetBase, $request->addNoindex );
-				file_put_contents( $target, $rewritten, LOCK_EX );
+				$html = file_get_contents( $absolute );
+				if ( false === $html ) {
+					throw new RuntimeException( 'Unable to read generated page: ' . $relative );
+				}
+				$pages[]   = array(
+					'html'     => $html,
+					'relative' => $relative,
+				);
+				$warnings  = array_merge( $warnings, $this->dynamicWarnings( $html, $relative ) );
+				$rewritten = $this->rewriter->rewriteHtml( $html, $relative, home_url( '/' ), $request->mode, $request->targetBase, $request->addNoindex );
+				if ( false === file_put_contents( $target, $rewritten, LOCK_EX ) ) {
+					throw new RuntimeException( 'Unable to write exported page: ' . $relative );
+				}
 			} elseif ( 'css' === $extension ) {
-				$css = (string) file_get_contents( $absolute );
-				file_put_contents( $target, $this->rewriter->rewriteCss( $css, $relative, home_url( '/' ), $request->mode, $request->targetBase ), LOCK_EX );
+				$css = file_get_contents( $absolute );
+				if ( false === $css || false === file_put_contents( $target, $this->rewriter->rewriteCss( $css, $relative, home_url( '/' ), $request->mode, $request->targetBase ), LOCK_EX ) ) {
+					throw new RuntimeException( 'Unable to write exported stylesheet: ' . $relative );
+				}
 			} elseif ( ! copy( $absolute, $target ) ) {
 				throw new RuntimeException( 'Unable to copy export asset: ' . $relative );
 			}
@@ -127,12 +141,15 @@ final class Exporter {
 			if ( ! $item->isFile() ) {
 				continue;
 			}
-			$relative           = str_replace( '\\', '/', substr( $item->getPathname(), strlen( rtrim( $root, '/\\' ) ) + 1 ) );
-			$hash = hash_file( 'sha256', $item->getPathname() );
+			$relative = str_replace( '\\', '/', substr( $item->getPathname(), strlen( rtrim( $root, '/\\' ) ) + 1 ) );
+			$hash     = hash_file( 'sha256', $item->getPathname() );
 			if ( false === $hash ) {
 				throw new RuntimeException( 'Unable to hash exported file: ' . $relative );
 			}
-			$files[ $relative ] = array( 'sha256' => $hash, 'bytes' => $item->getSize() );
+			$files[ $relative ] = array(
+				'sha256' => $hash,
+				'bytes'  => $item->getSize(),
+			);
 		}
 		ksort( $files );
 		return array(
@@ -150,13 +167,13 @@ final class Exporter {
 	/** @return list<string> */
 	private function dynamicWarnings( string $html, string $relative ): array {
 		$patterns = array(
-			'<form'                 => 'contains a form that requires a backend',
-			'wp-comments-post.php'  => 'contains WordPress comments that will not submit',
-			'wp-login.php'          => 'links to WordPress login',
-			'?s='                   => 'contains WordPress search that will not run on static hosting',
-			'wc-ajax='              => 'contains a WooCommerce AJAX action',
-			'/checkout/'            => 'links to a checkout backend',
-			'/my-account/'          => 'links to an account backend',
+			'<form'                => 'contains a form that requires a backend',
+			'wp-comments-post.php' => 'contains WordPress comments that will not submit',
+			'wp-login.php'         => 'links to WordPress login',
+			'?s='                  => 'contains WordPress search that will not run on static hosting',
+			'wc-ajax='             => 'contains a WooCommerce AJAX action',
+			'/checkout/'           => 'links to a checkout backend',
+			'/my-account/'         => 'links to an account backend',
 		);
 		$warnings = array();
 		foreach ( $patterns as $needle => $message ) {
@@ -175,12 +192,12 @@ final class Exporter {
 
 	/** @param list<string> $warnings */
 	private function deploymentReadme( ExportRequest $request, array $warnings ): string {
-		$lines = array(
+		$lines         = array(
 			'Static WP Publisher deployment package',
 			'=====================================',
 			'',
 			'Mode: ' . $request->mode,
-			'Target: ' . ( $request->targetBase ?: '(relocatable preview)' ),
+			'Target: ' . ( '' !== $request->targetBase ? $request->targetBase : '(relocatable preview)' ),
 			'',
 			'Extract this package locally and upload the extracted tree, or use a hosting panel that explicitly supports archive extraction. Uploading a ZIP over FTP does not extract it.',
 			'Use HTTPS-capable SFTP or FTPS instead of plain FTP whenever possible.',
@@ -188,7 +205,8 @@ final class Exporter {
 			'',
 			'Dynamic limitations:',
 		);
-		$lines = array_merge( $lines, $warnings ?: array( '- No known dynamic markers were detected. Manual review is still required.' ) );
+		$warning_lines = ! empty( $warnings ) ? array_map( static fn ( string $warning ): string => '- ' . $warning, $warnings ) : array( '- No known dynamic markers were detected. Manual review is still required.' );
+		$lines         = array_merge( $lines, $warning_lines );
 		return implode( PHP_EOL, $lines ) . PHP_EOL;
 	}
 }

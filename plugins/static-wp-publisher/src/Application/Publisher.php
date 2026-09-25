@@ -28,6 +28,15 @@ final class Publisher {
 		if ( is_wp_error( $response ) ) {
 			return new PublishResult( false, $response->get_error_message() );
 		}
+		if ( in_array( $response['status'], array( 404, 410 ), true ) ) {
+			try {
+				$this->storage->delete( $url );
+				$this->removeArtifact( $url );
+				return new PublishResult( true, 'Removed stale artifact for a missing URL.' );
+			} catch ( Throwable $error ) {
+				return new PublishResult( false, $error->getMessage() );
+			}
+		}
 
 		$eligible = Eligibility::check( $response['status'], $response['headers'], $response['body'] );
 		if ( ! $eligible->success ) {
@@ -36,7 +45,8 @@ final class Publisher {
 
 		if ( in_array( $response['status'], array( 301, 308 ), true ) ) {
 			$redirects         = get_option( 'swpp_redirects', array() );
-			$redirects[ $url ] = (string) ( $response['headers']['location'] ?? '' );
+			$location          = $response['headers']['location'] ?? '';
+			$redirects[ $url ] = is_array( $location ) ? (string) reset( $location ) : $location;
 			update_option( 'swpp_redirects', $redirects, false );
 			return new PublishResult( true, 'Redirect recorded.' );
 		}
@@ -56,15 +66,24 @@ final class Publisher {
 		$wpdb->replace(
 			$table,
 			array(
-				'url_hash'     => hash( 'sha256', $url ),
-				'url'          => $url,
-				'relative_path'=> $path,
-				'content_hash' => $hash,
-				'bytes'        => $bytes,
-				'status_code'  => $status,
-				'published_at' => current_time( 'mysql', true ),
+				'url_hash'      => hash( 'sha256', $url ),
+				'url'           => $url,
+				'relative_path' => $path,
+				'content_hash'  => $hash,
+				'bytes'         => $bytes,
+				'status_code'   => $status,
+				'published_at'  => current_time( 'mysql', true ),
 			),
 			array( '%s', '%s', '%s', '%s', '%d', '%d', '%s' )
+		);
+	}
+
+	private function removeArtifact( string $url ): void {
+		global $wpdb;
+		$wpdb->delete(
+			$this->database->table( 'artifacts' ),
+			array( 'url_hash' => hash( 'sha256', $url ) ),
+			array( '%s' )
 		);
 	}
 }

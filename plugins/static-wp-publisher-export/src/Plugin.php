@@ -17,7 +17,7 @@ use SWPP\Export\Infrastructure\ZipPackager;
 
 final class Plugin {
 	private static ?self $instance = null;
-	private bool $booted = false;
+	private bool $booted           = false;
 
 	public static function instance(): self {
 		return self::$instance ??= new self();

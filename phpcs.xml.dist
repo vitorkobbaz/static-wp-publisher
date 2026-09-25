@@ -16,7 +16,10 @@
     <rule ref="WordPress.DB.PreparedSQL"/>
     <rule ref="WordPress.NamingConventions.PrefixAllGlobals">
         <properties>
-            <property name="prefixes" type="array" value="swpp,SWPP"/>
+            <property name="prefixes" type="array">
+                <element value="swpp"/>
+                <element value="SWPP"/>
+            </property>
         </properties>
     </rule>
     <exclude-pattern>*/vendor/*</exclude-pattern>

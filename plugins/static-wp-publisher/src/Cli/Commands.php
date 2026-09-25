@@ -26,10 +26,18 @@ final class Commands {
 		\WP_CLI::add_command( 'swpp', new self( $queue, $publisher, $inventory, $storage ) );
 	}
 
-	/** Shows queue and publication status. */
+	/**
+	 * Shows queue and publication status.
+	 *
+	 * @param list<string> $args Positional arguments.
+	 * @param array<string,mixed> $assoc_args Named arguments.
+	 */
 	public function status( array $args, array $assoc_args ): void {
 		unset( $args );
-		$data = array( 'queue' => $this->queue->counts(), 'published_root' => $this->storage->publishedRoot() );
+		$data = array(
+			'queue'          => $this->queue->counts(),
+			'published_root' => $this->storage->publishedRoot(),
+		);
 		if ( 'json' === ( $assoc_args['format'] ?? '' ) ) {
 			\WP_CLI::line( (string) wp_json_encode( $data, JSON_PRETTY_PRINT ) );
 			return;
@@ -53,12 +61,22 @@ final class Commands {
 	 * <url>
 	 * : Public URL on this WordPress origin.
 	 */
+	/** @param list<string> $args Positional arguments. */
 	public function publish( array $args ): void {
 		$result = $this->publisher->publish( (string) ( $args[0] ?? '' ) );
-		$result->success ? \WP_CLI::success( $result->message ) : \WP_CLI::error( $result->message );
+		if ( $result->success ) {
+			\WP_CLI::success( $result->message );
+		} else {
+			\WP_CLI::error( $result->message );
+		}
 	}
 
-	/** Processes due queue items. */
+	/**
+	 * Processes due queue items.
+	 *
+	 * @param list<string> $args Positional arguments.
+	 * @param array<string,mixed> $assoc_args Named arguments.
+	 */
 	public function process( array $args, array $assoc_args ): void {
 		unset( $args );
 		$limit = max( 1, min( 1000, (int) ( $assoc_args['limit'] ?? 10 ) ) );
@@ -69,7 +87,11 @@ final class Commands {
 				break;
 			}
 			$result = $this->publisher->publish( $job->url );
-			$result->success ? $this->queue->complete( $job->id ) : $this->queue->fail( $job->id, $result->message );
+			if ( $result->success ) {
+				$this->queue->complete( $job );
+			} else {
+				$this->queue->fail( $job, $result->message );
+			}
 			++$done;
 		}
 		\WP_CLI::success( sprintf( '%d job(s) processed.', $done ) );

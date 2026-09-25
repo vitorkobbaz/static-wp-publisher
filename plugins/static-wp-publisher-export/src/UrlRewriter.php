@@ -25,14 +25,14 @@ final class UrlRewriter {
 
 		foreach ( array( 'href', 'src', 'poster', 'action', 'formaction', 'cite', 'data' ) as $attribute ) {
 			foreach ( $document->getElementsByTagName( '*' ) as $element ) {
-				if ( $element instanceof DOMElement && $element->hasAttribute( $attribute ) ) {
+				if ( $element->hasAttribute( $attribute ) ) {
 					$element->setAttribute( $attribute, $this->rewriteUrl( $element->getAttribute( $attribute ), $relativeFile, $sourceBase, $mode, $targetBase ) );
 				}
 			}
 		}
 		foreach ( array( 'srcset', 'imagesrcset', 'data-srcset' ) as $attribute ) {
 			foreach ( $document->getElementsByTagName( '*' ) as $element ) {
-				if ( ! $element instanceof DOMElement || ! $element->hasAttribute( $attribute ) ) {
+				if ( ! $element->hasAttribute( $attribute ) ) {
 					continue;
 				}
 				$candidates = array();
@@ -53,26 +53,25 @@ final class UrlRewriter {
 	}
 
 	public function rewriteCss( string $css, string $relativeFile, string $sourceBase, string $mode, string $targetBase ): string {
-		return preg_replace_callback(
+		$rewritten = preg_replace_callback(
 			'/url\\(\\s*([\'\"]?)([^)\'\"]+)\\1\\s*\\)/i',
 			fn ( array $matches ): string => 'url(' . $matches[1] . $this->rewriteUrl( trim( $matches[2] ), $relativeFile, $sourceBase, $mode, $targetBase ) . $matches[1] . ')',
 			$css
 		) ?? $css;
+		return preg_replace_callback(
+			'/(@import\\s+)([\'\"])([^\'\"]+)\\2/i',
+			fn ( array $matches ): string => $matches[1] . $matches[2] . $this->rewriteUrl( trim( $matches[3] ), $relativeFile, $sourceBase, $mode, $targetBase ) . $matches[2],
+			$rewritten
+		) ?? $rewritten;
 	}
 
 	public function rewriteUrl( string $url, string $relativeFile, string $sourceBase, string $mode, string $targetBase ): string {
 		$url = trim( $url );
-		if ( '' === $url || str_starts_with( $url, '#' ) || preg_match( '#^(data|mailto|tel|javascript):#i', $url ) ) {
+		if ( '' === $url || str_starts_with( $url, '#' ) || str_starts_with( $url, '?' ) || preg_match( '#^(data|mailto|tel|javascript|blob):#i', $url ) ) {
 			return $url;
 		}
 
-		$source = rtrim( $sourceBase, '/' );
-		$path   = null;
-		if ( str_starts_with( $url, $source ) ) {
-			$path = '/' . ltrim( substr( $url, strlen( $source ) ), '/' );
-		} elseif ( str_starts_with( $url, '/' ) ) {
-			$path = $url;
-		}
+		$path = $this->internalPath( $url, $sourceBase );
 		if ( null === $path ) {
 			return $url;
 		}
@@ -85,16 +84,50 @@ final class UrlRewriter {
 		$query    = '';
 		if ( str_contains( $path, '#' ) ) {
 			list( $path, $fragment ) = explode( '#', $path, 2 );
-			$fragment = '#' . $fragment;
+			$fragment                = '#' . $fragment;
 		}
 		if ( str_contains( $path, '?' ) ) {
 			list( $path, $query ) = explode( '?', $path, 2 );
-			$query = '?' . $query;
+			$query                = '?' . $query;
 		}
 
 		$from = trim( str_replace( '\\', '/', dirname( $relativeFile ) ), './' );
 		$ups  = '' === $from ? 0 : count( array_filter( explode( '/', $from ) ) );
 		return str_repeat( '../', $ups ) . ltrim( $path, '/' ) . $query . $fragment;
+	}
+
+	private function internalPath( string $url, string $sourceBase ): ?string {
+		if ( str_starts_with( $url, '/' ) && ! str_starts_with( $url, '//' ) ) {
+			return $url;
+		}
+
+		$source = parse_url( $sourceBase );
+		$parsed = parse_url( $url );
+		if ( false === $source || false === $parsed || ! isset( $source['host'], $parsed['host'] ) ) {
+			return null;
+		}
+		$source_scheme = strtolower( (string) ( $source['scheme'] ?? '' ) );
+		$url_scheme    = strtolower( (string) ( $parsed['scheme'] ?? $source_scheme ) );
+		$source_port   = (int) ( $source['port'] ?? ( 'https' === $source_scheme ? 443 : 80 ) );
+		$url_port      = (int) ( $parsed['port'] ?? ( 'https' === $url_scheme ? 443 : 80 ) );
+		if (
+			strtolower( (string) $source['host'] ) !== strtolower( (string) $parsed['host'] ) ||
+			$source_scheme !== $url_scheme ||
+			$source_port !== $url_port ||
+			isset( $parsed['user'] ) ||
+			isset( $parsed['pass'] )
+		) {
+			return null;
+		}
+
+		$path = (string) ( $parsed['path'] ?? '/' );
+		if ( isset( $parsed['query'] ) ) {
+			$path .= '?' . $parsed['query'];
+		}
+		if ( isset( $parsed['fragment'] ) ) {
+			$path .= '#' . $parsed['fragment'];
+		}
+		return '/' . ltrim( $path, '/' );
 	}
 
 	private function addNoindex( DOMDocument $document ): void {
@@ -103,7 +136,7 @@ final class UrlRewriter {
 			return;
 		}
 		foreach ( $document->getElementsByTagName( 'meta' ) as $meta ) {
-			if ( $meta instanceof DOMElement && 'robots' === strtolower( $meta->getAttribute( 'name' ) ) ) {
+			if ( 'robots' === strtolower( $meta->getAttribute( 'name' ) ) ) {
 				$meta->setAttribute( 'content', 'noindex, nofollow' );
 				return;
 			}

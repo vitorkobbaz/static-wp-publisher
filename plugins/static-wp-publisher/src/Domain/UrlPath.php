@@ -25,8 +25,8 @@ final class UrlPath {
 			throw new InvalidArgumentException( 'URL is outside the WordPress origin.' );
 		}
 
-		$path       = rawurldecode( (string) ( $url_parts['path'] ?? '/' ) );
-		$home_path  = rtrim( (string) ( $home_parts['path'] ?? '' ), '/' );
+		$path      = rawurldecode( (string) ( $url_parts['path'] ?? '/' ) );
+		$home_path = rtrim( (string) ( $home_parts['path'] ?? '' ), '/' );
 		if ( '' !== $home_path && str_starts_with( $path, $home_path ) ) {
 			$path = substr( $path, strlen( $home_path ) );
 		}

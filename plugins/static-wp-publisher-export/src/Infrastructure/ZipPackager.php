@@ -43,6 +43,19 @@ final class ZipPackager {
 		if ( ! $zip->close() || ! is_file( $destination ) ) {
 			throw new RuntimeException( 'ZIP archive validation failed.' );
 		}
+
+		$validation = new ZipArchive();
+		if ( true !== $validation->open( $destination, ZipArchive::RDONLY ) ) {
+			throw new RuntimeException( 'The generated ZIP archive cannot be reopened.' );
+		}
+		for ( $index = 0; $index < $validation->numFiles; $index++ ) {
+			$name = $validation->getNameIndex( $index );
+			if ( false === $name || str_starts_with( $name, '/' ) || str_contains( $name, "\0" ) || preg_match( '#(^|/)\.\.(/|$)#', str_replace( '\\', '/', $name ) ) ) {
+				$validation->close();
+				throw new RuntimeException( 'The generated ZIP contains an unsafe path.' );
+			}
+		}
+		$validation->close();
 		return $destination;
 	}
 }

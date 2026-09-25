@@ -39,6 +39,26 @@ final class Storage {
 		return $this->publishedRoot() . '/' . UrlPath::relative( $url, home_url( '/' ) );
 	}
 
+	public function delete( string $url ): void {
+		$target = $this->pathForUrl( $url );
+		if ( is_file( $target ) && ! unlink( $target ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink
+			throw new RuntimeException( 'Unable to remove stale static artifact.' );
+		}
+
+		$root      = rtrim( wp_normalize_path( $this->publishedRoot() ), '/' );
+		$directory = dirname( $target );
+		while ( is_dir( $directory ) && wp_normalize_path( $directory ) !== $root ) {
+			$entries = scandir( $directory );
+			if ( false === $entries || array_diff( $entries, array( '.', '..' ) ) ) {
+				break;
+			}
+			if ( ! rmdir( $directory ) ) {
+				break;
+			}
+			$directory = dirname( $directory );
+		}
+	}
+
 	/**
 	 * @return array{path:string,relative:string,hash:string,bytes:int}
 	 */
