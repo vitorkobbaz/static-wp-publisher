@@ -4,6 +4,9 @@
 /.phpunit.result.cache
 /coverage/
 /artifacts/
+/.wp-env.override.json
+/playwright-report/
+/test-results/
 /.wp-env/
 /.env
 /.env.*
