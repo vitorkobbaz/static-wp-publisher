@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "feature/**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  php:
+    name: PHP ${{ matrix.php }} / WordPress ${{ matrix.wordpress }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - php: "8.3"
+            wordpress: "6.5"
+          - php: "8.3"
+            wordpress: "7.0"
+          - php: "8.3"
+            wordpress: "7.1"
+          - php: "8.4"
+            wordpress: "7.1"
+          - php: "8.5"
+            wordpress: "7.1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: dom, json, mbstring, mysqli, zip
+          coverage: none
+          tools: composer:v2
+      - run: composer install --no-interaction --prefer-dist
+      - run: composer validate --strict
+      - run: composer check
+      - name: Plugin headers
+        run: |
+          grep -Eq "Requires PHP:[[:space:]]+8\.3" plugins/static-wp-publisher/static-wp-publisher.php
+          grep -Eq "Requires at least:[[:space:]]+6\.5" plugins/static-wp-publisher/static-wp-publisher.php
+
+  js:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint:js
+      - run: npm run test:js

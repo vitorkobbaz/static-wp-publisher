@@ -1,0 +1,44 @@
+{
+  "name": "kobbaz/static-wp-publisher",
+  "description": "Monorepo for Static WP Publisher Core and add-ons.",
+  "type": "project",
+  "license": "GPL-2.0-or-later",
+  "require": {
+    "php": ">=8.3",
+    "ext-dom": "*",
+    "ext-json": "*"
+  },
+  "require-dev": {
+    "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
+    "php-stubs/wordpress-stubs": "^6.5 || ^7.0",
+    "phpstan/phpstan": "^2.1",
+    "phpunit/phpunit": "^9.6",
+    "szepeviktor/phpstan-wordpress": "^2.0",
+    "wp-coding-standards/wpcs": "^3.2",
+    "yoast/phpunit-polyfills": "^3.1"
+  },
+  "autoload": {
+    "psr-4": {
+      "SWPP\\Core\\": "plugins/static-wp-publisher/src/",
+      "SWPP\\Export\\": "plugins/static-wp-publisher-export/src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "SWPP\\Tests\\": "tests/"
+    }
+  },
+  "scripts": {
+    "syntax": "php tools/php-syntax.php",
+    "test": "phpunit",
+    "lint": "phpcs",
+    "analyse": "phpstan analyse --memory-limit=1G --debug",
+    "check": ["@syntax", "@lint", "@analyse", "@test"]
+  },
+  "config": {
+    "allow-plugins": {
+      "dealerdirect/phpcodesniffer-composer-installer": true
+    },
+    "sort-packages": true
+  }
+}
