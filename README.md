@@ -15,6 +15,8 @@ The first public milestone includes the Core and Individual Export. Agency and M
 
 Early MVP. Do not install on production sites yet.
 
+Implemented scope and production-release gaps are tracked in [docs/PENDING_FEATURES.md](docs/PENDING_FEATURES.md).
+
 ## Requirements
 
 - WordPress 6.5 or newer
