@@ -2,7 +2,7 @@
 
 Static WP Publisher generates and serves public WordPress pages as static HTML while keeping WordPress as the editorial source.
 
-This private monorepo contains:
+This repository is temporarily public while the project is under active development. It is a monorepo containing both the free Core plugin and the separately distributed commercial add-on:
 
 - `plugins/static-wp-publisher`: the free WordPress.org Core plugin.
 - `plugins/static-wp-publisher-export`: the commercial portable-export add-on.
