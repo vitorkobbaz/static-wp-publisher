@@ -9,7 +9,7 @@
     "test:js": "wp-scripts test-unit-js --passWithNoTests",
     "test:e2e": "playwright test",
     "test:e2e:debug": "playwright test --debug",
-    "typecheck:e2e": "tsc --noEmit --target ES2022 --module NodeNext --moduleResolution NodeNext --esModuleInterop --strict --types node playwright.config.ts tests/e2e/global-setup.ts tests/e2e/global-teardown.ts tests/e2e/support/process.ts tests/e2e/support/queue.ts tests/e2e/specs/activation-publication.spec.ts tests/e2e/specs/schema-upgrade.spec.ts tests/e2e/specs/static-serving.spec.ts",
+    "typecheck:e2e": "tsc --noEmit --target ES2022 --module NodeNext --moduleResolution NodeNext --esModuleInterop --strict --types node playwright.config.ts tests/e2e/global-setup.ts tests/e2e/global-teardown.ts tests/e2e/support/process.ts tests/e2e/support/queue.ts tests/e2e/support/admin.ts tests/e2e/specs/activation-publication.spec.ts tests/e2e/specs/admin-dashboard.spec.ts tests/e2e/specs/schema-upgrade.spec.ts tests/e2e/specs/static-serving.spec.ts",
     "lint:js": "wp-scripts lint-js \"plugins/**/*.js\" --no-error-on-unmatched-pattern",
     "packages-update": "wp-scripts packages-update"
   },

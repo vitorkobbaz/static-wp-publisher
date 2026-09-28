@@ -14,6 +14,7 @@ use SWPP\Core\Application\Invalidator;
 use SWPP\Core\Application\Inventory;
 use SWPP\Core\Application\Publisher;
 use SWPP\Core\Application\Queue;
+use SWPP\Core\Application\StatusReport;
 use SWPP\Core\Application\Worker;
 use SWPP\Core\Cli\Commands;
 use SWPP\Core\Http\RestController;
@@ -21,6 +22,7 @@ use SWPP\Core\Infrastructure\Database;
 use SWPP\Core\Infrastructure\CronSchedule;
 use SWPP\Core\Infrastructure\Renderer;
 use SWPP\Core\Infrastructure\Storage;
+use SWPP\Core\Infrastructure\Verifier;
 use SWPP\Core\Serving\LocalServer;
 
 final class Plugin {
@@ -49,7 +51,7 @@ final class Plugin {
 
 		( new LocalServer( $storage ) )->register();
 		( new Invalidator( $queue ) )->register();
-		( new AdminPage( $queue, $publisher, $inventory, $storage ) )->register();
+		( new AdminPage( $queue, $publisher, $inventory, $storage, new StatusReport( $database, $queue ), new Verifier() ) )->register();
 		( new RestController( $queue, $publisher, $inventory, $storage ) )->register();
 
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
@@ -64,14 +66,6 @@ final class Plugin {
 		$queue     = new Queue( $database );
 		$publisher = new Publisher( new Renderer(), new Storage(), $database );
 
-		if ( false !== get_option( 'swpp_full_rebuild_recommended', false ) ) {
-			// Delete first so a concurrent content change can safely request another sweep.
-			delete_option( 'swpp_full_rebuild_recommended' );
-			( new Inventory( $queue ) )->enqueueAll();
-		} else {
-			( new Inventory( $queue ) )->enqueueBatch();
-		}
-
-		( new Worker( $queue, $publisher ) )->run( Worker::requestBudget() );
+		( new Worker( $queue, $publisher ) )->runPass( new Inventory( $queue ), Worker::requestBudget() );
 	}
 }

@@ -1,0 +1,162 @@
+.swpp-admin .swpp-banner {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 16px;
+	align-items: center;
+	justify-content: space-between;
+	max-width: 1100px;
+	margin: 16px 0;
+	padding: 16px 20px;
+	border: 1px solid #c3c4c7;
+	border-left-width: 6px;
+	background: #fff;
+}
+
+.swpp-admin .swpp-banner p {
+	margin: 4px 0;
+	max-width: 760px;
+}
+
+.swpp-admin .swpp-banner--on {
+	border-left-color: #00a32a;
+}
+
+.swpp-admin .swpp-banner--off {
+	border-left-color: #8c8f94;
+}
+
+.swpp-admin .swpp-banner__title {
+	font-size: 16px;
+	font-weight: 600;
+}
+
+.swpp-admin .swpp-inline-form {
+	display: inline-block;
+}
+
+.swpp-admin .swpp-cards {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+	gap: 12px;
+	max-width: 1100px;
+}
+
+.swpp-admin .swpp-card {
+	padding: 12px 16px;
+	border: 1px solid #c3c4c7;
+	border-top-width: 4px;
+	background: #fff;
+}
+
+.swpp-admin .swpp-card p {
+	margin: 0;
+}
+
+.swpp-admin .swpp-card__label {
+	color: #50575e;
+	font-weight: 600;
+}
+
+.swpp-admin .swpp-card__value {
+	font-size: 28px;
+	line-height: 1.4;
+}
+
+.swpp-admin .swpp-card__hint {
+	color: #646970;
+	font-size: 12px;
+}
+
+.swpp-admin .swpp-card--good {
+	border-top-color: #00a32a;
+}
+
+.swpp-admin .swpp-card--warn {
+	border-top-color: #dba617;
+}
+
+.swpp-admin .swpp-card--bad {
+	border-top-color: #d63638;
+}
+
+.swpp-admin .swpp-card--neutral {
+	border-top-color: #8c8f94;
+}
+
+.swpp-admin .swpp-generate {
+	max-width: 1100px;
+	margin: 20px 0;
+}
+
+.swpp-admin .swpp-progress progress {
+	width: 100%;
+	max-width: 600px;
+	height: 16px;
+}
+
+.swpp-admin .swpp-pages {
+	max-width: 1400px;
+}
+
+.swpp-admin .swpp-pages td {
+	vertical-align: middle;
+}
+
+.swpp-admin .swpp-url {
+	font-size: 11px;
+	word-break: break-all;
+}
+
+.swpp-admin .swpp-muted {
+	color: #646970;
+	font-size: 12px;
+}
+
+.swpp-admin .swpp-actions form {
+	display: inline-block;
+	margin: 2px 0;
+}
+
+.swpp-admin .swpp-badge {
+	display: inline-block;
+	padding: 2px 8px;
+	border-radius: 10px;
+	font-size: 12px;
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.swpp-admin .swpp-badge--good {
+	background: #edfaef;
+	color: #005c12;
+}
+
+.swpp-admin .swpp-badge--warn {
+	background: #fcf9e8;
+	color: #614200;
+}
+
+.swpp-admin .swpp-badge--bad {
+	background: #fcf0f1;
+	color: #8a2424;
+}
+
+.swpp-admin .swpp-badge--info {
+	background: #f0f6fc;
+	color: #0a4b78;
+}
+
+.swpp-admin .swpp-badge--neutral {
+	background: #f0f0f1;
+	color: #3c434a;
+}
+
+.swpp-admin .swpp-details {
+	max-width: 1100px;
+	margin-top: 24px;
+}
+
+.swpp-admin .swpp-details summary {
+	cursor: pointer;
+	font-weight: 600;
+}

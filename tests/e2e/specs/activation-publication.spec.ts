@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { stat } from "node:fs/promises";
 import { parseFixtureJson, runWp } from "../support/process";
 import { processQueue } from "../support/queue";
+import { loginAsAdmin } from "../support/admin";
 
 type ActivationState = {
     core_active: boolean;
@@ -98,11 +99,7 @@ test.describe
         expect(bypassed?.headers()["x-static-wp-publisher"]).toBeUndefined();
         expect(await page.content()).toContain('data-swpp-e2e="v2"');
 
-        await page.goto("/wp-login.php");
-        await page.locator("#user_login").fill("admin");
-        await page.locator("#user_pass").fill("password");
-        await page.locator("#wp-submit").click();
-        await expect(page).toHaveURL(/\/wp-admin\//);
+        await loginAsAdmin(page);
 
         await page.goto("/wp-admin/admin.php?page=static-wp-publisher-export");
         await expect(

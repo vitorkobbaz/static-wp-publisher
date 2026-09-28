@@ -19,7 +19,8 @@ This document separates the implemented Core + Individual Export MVP from work s
 ## Core follow-up
 
 - Handle nonces embedded in public HTML. Static pages keep the anonymous nonces that themes/plugins print (for example `ElementorProFrontendConfig.nonce`), which WordPress invalidates after 12–24 hours; AJAX features and forms that verify them may start failing. Needed: detection in Eligibility/diagnostics, periodic regeneration of affected pages within the nonce lifetime, and an E2E check with Elementor-style config.
-- Continue the admin "Process next batch" action automatically until the queue is empty (currently one budgeted pass of up to 50 URLs per click).
+- Translate the administration screen (pt_BR first) once the release translation pipeline exists.
+- Add filtering/search to the dashboard page list and show archive/term pages in their own tab (they currently appear only in "Needs attention" when they fail).
 
 - Enforce the free-tier limit of 10 published pages. The monetization model defines it, but the current `Inventory`/`Eligibility` code does not apply any page cap yet.
 

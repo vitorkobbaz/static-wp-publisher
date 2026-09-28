@@ -197,11 +197,12 @@ final class Queue {
 		$table = $this->database->table( 'jobs' );
 		$rows  = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT url, status, attempts, available_at, last_error FROM {$table} WHERE last_error IS NOT NULL AND (status IN ('failed','skipped') OR (status = 'pending' AND attempts > 0)) ORDER BY updated_at DESC, id DESC LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				// Only the latest job of each URL matters; older attempts are history.
+				"SELECT job.url, job.status, job.attempts, job.available_at, job.last_error FROM {$table} job INNER JOIN (SELECT MAX(id) AS id FROM {$table} GROUP BY url_hash) latest ON latest.id = job.id WHERE job.last_error IS NOT NULL AND (job.status IN ('failed','skipped') OR (job.status = 'pending' AND job.attempts > 0)) ORDER BY job.updated_at DESC, job.id DESC LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 				max( 1, min( 100, $limit ) )
 			)
 		);
-		$out   = array();
+		$out = array();
 		foreach ( $rows as $row ) {
 			$out[] = array(
 				'url'          => (string) $row->url,
@@ -210,6 +211,103 @@ final class Queue {
 				'available_at' => (string) $row->available_at,
 				'last_error'   => (string) $row->last_error,
 			);
+		}
+		return $out;
+	}
+
+	/**
+	 * Claims the active job of one URL immediately, ignoring its retry schedule. Used by
+	 * explicit administrator actions on a single page.
+	 */
+	public function claimForUrl( string $url ): ?QueueJob {
+		global $wpdb;
+		$table = $this->database->table( 'jobs' );
+		$now   = current_time( 'mysql', true );
+		$row   = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT id, url, reason, attempts FROM {$table} WHERE url_hash = %s AND status = 'pending' ORDER BY id DESC LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				hash( 'sha256', $url )
+			),
+			ARRAY_A
+		);
+		if ( ! is_array( $row ) ) {
+			return null;
+		}
+
+		$token   = hash( 'sha256', wp_generate_uuid4() );
+		$updated = $wpdb->update(
+			$table,
+			array(
+				'status'     => 'running',
+				'locked_at'  => $now,
+				'locked_by'  => $token,
+				'updated_at' => $now,
+			),
+			array(
+				'id'     => (int) $row['id'],
+				'status' => 'pending',
+			),
+			array( '%s', '%s', '%s', '%s' ),
+			array( '%d', '%s' )
+		);
+		return 1 === $updated ? new QueueJob( (int) $row['id'], (string) $row['url'], (string) $row['reason'], (int) $row['attempts'], $token ) : null;
+	}
+
+	/**
+	 * Latest job for each of the given URL hashes.
+	 *
+	 * @param list<string> $hashes SHA-256 URL hashes.
+	 * @return array<string,array{status:string,attempts:int,last_error:string,updated_at:string}>
+	 */
+	public function latestByHash( array $hashes ): array {
+		global $wpdb;
+		$hashes = array_values( array_unique( array_filter( $hashes, static fn( string $hash ): bool => 1 === preg_match( '/^[a-f0-9]{64}$/', $hash ) ) ) );
+		if ( array() === $hashes ) {
+			return array();
+		}
+		$table        = $this->database->table( 'jobs' );
+		$placeholders = implode( ',', array_fill( 0, count( $hashes ), '%s' ) );
+		$rows         = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT job.url_hash, job.status, job.attempts, job.last_error, job.updated_at FROM {$table} job INNER JOIN (SELECT MAX(id) AS id FROM {$table} WHERE url_hash IN ({$placeholders}) GROUP BY url_hash) latest ON latest.id = job.id", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+				...$hashes
+			)
+		);
+		$out          = array();
+		foreach ( $rows as $row ) {
+			$out[ (string) $row->url_hash ] = array(
+				'status'     => (string) $row->status,
+				'attempts'   => (int) $row->attempts,
+				'last_error' => (string) $row->last_error,
+				'updated_at' => (string) $row->updated_at,
+			);
+		}
+		return $out;
+	}
+
+	/**
+	 * Counts URLs by the status of their latest job, plus waiting retries.
+	 *
+	 * @return array{queued:int,retrying:int,running:int,failed:int,skipped:int}
+	 */
+	public function latestCounts(): array {
+		global $wpdb;
+		$table = $this->database->table( 'jobs' );
+		$rows  = $wpdb->get_results(
+			"SELECT CASE WHEN job.status = 'pending' AND job.attempts > 0 THEN 'retrying' WHEN job.status = 'pending' THEN 'queued' ELSE job.status END AS state, COUNT(*) AS total FROM {$table} job INNER JOIN (SELECT MAX(id) AS id FROM {$table} GROUP BY url_hash) latest ON latest.id = job.id GROUP BY state" // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		);
+		$out   = array(
+			'queued'   => 0,
+			'retrying' => 0,
+			'running'  => 0,
+			'failed'   => 0,
+			'skipped'  => 0,
+		);
+		foreach ( $rows as $row ) {
+			$state = (string) $row->state;
+			if ( isset( $out[ $state ] ) ) {
+				$out[ $state ] = (int) $row->total;
+			}
 		}
 		return $out;
 	}

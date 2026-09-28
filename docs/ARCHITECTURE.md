@@ -17,6 +17,17 @@
 
 WP-Cron is a compatibility fallback. Production sites should configure a real scheduler or invoke WP-CLI. Direct web-server delivery is enabled only through reviewed server rules; PHP fallback remains available.
 
+## Administration
+
+The Static Publisher screen is a read model (`StatusReport`) over the queue, the artifacts table, and public content:
+
+- A banner shows whether static serving is on, with a single toggle.
+- Summary cards show static copies, waiting and retrying jobs, pages served by WordPress (not publishable, including password-protected), and errors. Counts use the latest job per URL.
+- "Generate all pages now" starts a full inventory scan and runs REST worker passes (`/swpp/v1/build`, then `/swpp/v1/process` until nothing is due) with a progress bar. Without JavaScript it falls back to one server-side pass.
+- A paginated list of public pages and posts resolves each row with `Domain\PageStatus` (static, updating, stale, exposed, queued, generating, retrying, served by WordPress, error, not generated).
+- Per-row actions: "Regenerate" runs that URL immediately through the queue. "Check" performs an anonymous loopback request without cookies and reports whether the `X-Static-WP-Publisher: HIT` header was returned.
+- Row actions accept a content ID (0 = home page), never a URL or path. The ID must resolve to published, public content.
+
 ## Storage
 
 Default root: `wp-content/uploads/static-wp-publisher/<site-id>/`

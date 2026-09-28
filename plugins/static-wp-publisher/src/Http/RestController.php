@@ -105,7 +105,7 @@ final class RestController {
 	}
 
 	public function process(): WP_REST_Response {
-		$report = ( new Worker( $this->queue, $this->publisher ) )->run( Worker::requestBudget() );
+		$report = ( new Worker( $this->queue, $this->publisher ) )->runPass( $this->inventory, Worker::requestBudget() );
 		return new WP_REST_Response(
 			array(
 				'processed'     => $report->processed,
@@ -115,6 +115,7 @@ final class RestController {
 				'last_error'    => $report->lastError,
 				'pending'       => $this->queue->counts()['pending'],
 				'next_retry_at' => $this->queue->nextRetryAt(),
+				'scan_active'   => $this->inventory->scanInProgress(),
 			)
 		);
 	}
