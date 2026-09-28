@@ -19,6 +19,8 @@ npm run env:start
 composer check
 ```
 
+The E2E test instance uses host port 80 so WordPress can perform a real self-request from its web container. Ensure that port is available before `npm run test:e2e`; the current smoke suite does not support overriding `WP_ENV_TESTS_PORT`.
+
 WPML and Freemius jobs are skipped unless their protected CI secrets are available.
 
 ## Real-site fixtures

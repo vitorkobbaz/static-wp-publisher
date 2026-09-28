@@ -15,7 +15,11 @@ use SWPP\Export\Domain\ExportRequest;
 use SWPP\Export\Infrastructure\Entitlement;
 
 final class ExportPage {
-	public function __construct( private readonly Exporter $exporter, private readonly Entitlement $entitlement ) {}
+	public function __construct(
+		private readonly Exporter $exporter,
+		private readonly Entitlement $entitlement,
+		private readonly ExportDownload $download,
+	) {}
 
 	public function register(): void {
 		add_action( 'admin_menu', array( $this, 'menu' ), 20 );
@@ -52,8 +56,8 @@ final class ExportPage {
 				<?php if ( ! empty( $result['directory'] ) ) : ?>
 					<p><strong><?php esc_html_e( 'Directory:', 'static-wp-publisher-export' ); ?></strong> <code><?php echo esc_html( (string) $result['directory'] ); ?></code></p>
 				<?php endif; ?>
-				<?php if ( ! empty( $result['zip'] ) ) : ?>
-					<p><strong><?php esc_html_e( 'ZIP:', 'static-wp-publisher-export' ); ?></strong> <code><?php echo esc_html( (string) $result['zip'] ); ?></code></p>
+				<?php if ( ! empty( $result['download_token'] ) ) : ?>
+					<p><a class="button button-primary" href="<?php echo esc_url( $this->download->url( (string) $result['download_token'] ) ); ?>"><?php esc_html_e( 'Download ZIP', 'static-wp-publisher-export' ); ?></a></p>
 				<?php endif; ?>
 				<?php if ( ! empty( $result['warnings'] ) ) : ?>
 					<details>
@@ -76,7 +80,15 @@ final class ExportPage {
 					<tr><th scope="row"><?php esc_html_e( 'Relocatable safeguard', 'static-wp-publisher-export' ); ?></th><td><label><input type="checkbox" name="noindex" value="1" checked> <?php esc_html_e( 'Add noindex to relocatable HTML (recommended)', 'static-wp-publisher-export' ); ?></label></td></tr>
 					<tr><th scope="row"><?php esc_html_e( 'Package', 'static-wp-publisher-export' ); ?></th><td><label><input type="checkbox" name="create_zip" value="1" checked> <?php esc_html_e( 'Create ZIP in addition to the export directory', 'static-wp-publisher-export' ); ?></label></td></tr>
 				</table>
-				<?php submit_button( __( 'Create portable export', 'static-wp-publisher-export' ), 'primary', 'submit', true, array( 'disabled' => $this->entitlement->isAllowed() ? false : 'disabled' ) ); ?>
+				<?php
+				submit_button(
+					__( 'Create portable export', 'static-wp-publisher-export' ),
+					'primary',
+					'submit',
+					true,
+					$this->entitlement->isAllowed() ? array() : array( 'disabled' => 'disabled' )
+				);
+				?>
 			</form>
 		</div>
 		<?php
@@ -110,14 +122,24 @@ final class ExportPage {
 			wp_safe_redirect( admin_url( 'admin.php?page=static-wp-publisher-export' ) );
 			exit;
 		}
+		$download_token = null;
+		$message        = $result->message;
+		$success        = $result->success;
+		if ( $result->success && null !== $result->zip ) {
+			$download_token = $this->download->authorize( $result->zip, get_current_user_id() );
+			if ( null === $download_token ) {
+				$success = false;
+				$message = __( 'The export was created, but a secure download could not be prepared.', 'static-wp-publisher-export' );
+			}
+		}
 		set_transient(
 			'swpp_export_result_' . get_current_user_id(),
 			array(
-				'success'   => $result->success,
-				'message'   => $result->message,
-				'directory' => $result->directory,
-				'zip'       => $result->zip,
-				'warnings'  => $result->warnings,
+				'success'        => $success,
+				'message'        => $message,
+				'directory'      => $result->directory,
+				'download_token' => $download_token,
+				'warnings'       => $result->warnings,
 			),
 			MINUTE_IN_SECONDS
 		);

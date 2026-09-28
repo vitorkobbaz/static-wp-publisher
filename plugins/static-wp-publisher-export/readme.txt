@@ -8,3 +8,5 @@ License: GPLv2 or later
 Portable directory and ZIP exports for Static WP Publisher.
 
 This add-on is distributed separately from WordPress.org. It requires an active commercial entitlement in production.
+
+Exports are staged outside the public web root and downloaded through a temporary authenticated link. The host must provide a writable private system temporary directory; advanced installations can select one with the swpp_export_private_base_dir filter.

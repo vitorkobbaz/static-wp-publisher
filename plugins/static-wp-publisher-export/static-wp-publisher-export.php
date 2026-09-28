@@ -37,6 +37,13 @@ spl_autoload_register(
 	}
 );
 
+register_deactivation_hook(
+	__FILE__,
+	static function (): void {
+		wp_clear_scheduled_hook( SWPP\Export\Infrastructure\ExportStorage::CLEANUP_HOOK );
+	}
+);
+
 add_action(
 	'plugins_loaded',
 	static function (): void {

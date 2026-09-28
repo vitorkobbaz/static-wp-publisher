@@ -23,6 +23,8 @@ Default root: `wp-content/uploads/static-wp-publisher/<site-id>/`
 
 Builds, published artifacts, versions, temporary files, and manifests are isolated. Temporary artifacts are denied public execution and use canonicalized allowlisted paths.
 
+Portable export working directories and ZIP files are stored separately under the system temporary directory, outside every detected web document root. Hosts whose temporary directory resolves inside the public site must provide a writable private path with the `swpp_export_private_base_dir` filter. Download authorizations expire after one hour, while export data is retained briefly for retry and purged after 48 hours by a daily cleanup job.
+
 ## Security boundaries
 
 - Only anonymous GET responses are eligible.
