@@ -34,7 +34,7 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			}
 
 			$this->removeArtifacts();
-			update_option( 'permalink_structure', '/%postname%/' );
+			update_option( 'permalink_structure', '/index.php/%postname%/' );
 			flush_rewrite_rules();
 
 			$result = activate_plugin( self::CORE_PLUGIN, '', false, false );

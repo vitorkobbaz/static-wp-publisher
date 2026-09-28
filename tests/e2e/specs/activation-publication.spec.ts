@@ -23,9 +23,12 @@ type ArtifactState = {
 };
 
 async function processQueue(request: APIRequestContext): Promise<void> {
-    const response = await request.post("/wp-json/swpp-e2e/v1/process", {
-        headers: { "X-SWPP-E2E": "static-wp-publisher-e2e" },
-    });
+    const response = await request.post(
+        "/index.php?rest_route=/swpp-e2e/v1/process",
+        {
+            headers: { "X-SWPP-E2E": "static-wp-publisher-e2e" },
+        },
+    );
     expect(response.ok(), await response.text()).toBe(true);
 }
 
@@ -134,9 +137,13 @@ test.describe
         const entries = zip.getEntries().map((entry) => entry.entryName);
         expect(entries).toContain("swpp-manifest.json");
         expect(entries).toContain("README-DEPLOYMENT.txt");
-        expect(entries).toContain("swpp-e2e-page/index.html");
+        const exportedPagePath = `${new URL(post.url).pathname.replace(
+            /^\/+|\/+$/g,
+            "",
+        )}/index.html`;
+        expect(entries).toContain(exportedPagePath);
 
-        const exportedPage = zip.readFile("swpp-e2e-page/index.html");
+        const exportedPage = zip.readFile(exportedPagePath);
         expect(exportedPage).not.toBeNull();
         expect(exportedPage?.toString("utf8")).toContain('data-swpp-e2e="v2"');
         const manifest = JSON.parse(zip.readAsText("swpp-manifest.json")) as {
@@ -144,12 +151,12 @@ test.describe
             files: Record<string, { sha256: string; bytes: number }>;
         };
         expect(manifest.mode).toBe("relocatable");
-        expect(manifest.files["swpp-e2e-page/index.html"]?.sha256).toBe(
+        expect(manifest.files[exportedPagePath]?.sha256).toBe(
             createHash("sha256")
                 .update(exportedPage as Buffer)
                 .digest("hex"),
         );
-        expect(manifest.files["swpp-e2e-page/index.html"]?.bytes).toBe(
+        expect(manifest.files[exportedPagePath]?.bytes).toBe(
             (exportedPage as Buffer).byteLength,
         );
     });
