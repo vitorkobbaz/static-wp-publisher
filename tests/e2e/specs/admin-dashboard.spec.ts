@@ -13,7 +13,7 @@ function row(page: Page, url: string) {
 }
 
 function status(page: Page, url: string) {
-    return row(page, url).locator("[data-swpp-status]");
+    return row(page, url).locator(".column-status [data-swpp-status]");
 }
 
 test.describe
@@ -36,8 +36,9 @@ test.describe
 
         await loginAsAdmin(page);
         await page.goto(DASHBOARD);
-        await expect(page.locator(".swpp-banner__title")).toContainText(
-            "Static serving is OFF",
+        await expect(page.locator("[data-swpp-serving]")).toHaveAttribute(
+            "data-swpp-serving",
+            "off",
         );
         await expect(status(page, first.url)).toHaveAttribute(
             "data-swpp-group",
@@ -48,7 +49,7 @@ test.describe
 
         await test.step("generate everything with visible progress", async () => {
             await page
-                .getByRole("button", { name: "Generate all pages now" })
+                .getByRole("button", { name: "Generate all pages", exact: true })
                 .click();
             const notice = page.locator("[data-swpp-notice]");
             await expect(notice).toContainText("Finished", {
@@ -64,7 +65,7 @@ test.describe
                     "static",
                 );
                 await expect(status(page, published.url)).toHaveClass(
-                    /swpp-badge--good/,
+                    /swpp-state--good/,
                 );
             }
             await expect(status(page, secret.url)).toHaveAttribute(
@@ -75,8 +76,11 @@ test.describe
                 "Page is password protected.",
             );
             await expect(
-                page.locator('[data-swpp-card="attention"] .swpp-card__value'),
-            ).toHaveText("0");
+                page.locator('[data-swpp-legend="attention"]'),
+            ).toHaveCount(0);
+            await expect(page.locator("[data-swpp-headline]")).toContainText(
+                "have a static copy ready",
+            );
 
             const artifacts = parseFixtureJson<ArtifactRows>(
                 runWp(["swpp-e2e", "migration-state"]),
@@ -111,11 +115,23 @@ test.describe
         await test.step("row and bulk actions run without reloading", async () => {
             await page.goto(DASHBOARD);
             await page
-                .getByRole("button", { name: "Turn static serving on" })
+                .getByRole("button", { name: "Turn on", exact: true })
                 .click();
-            await expect(page.locator(".swpp-banner__title")).toContainText(
-                "Static serving is ON",
+            await expect(page.locator("[data-swpp-serving]")).toHaveAttribute(
+                "data-swpp-serving",
+                "on",
             );
+            await expect(page.locator("[data-swpp-headline]")).toContainText(
+                "served as static HTML",
+            );
+
+            await page.getByRole("button", { name: "Measure speed" }).click();
+            const speed = page.locator("[data-swpp-speed]");
+            await expect(speed).toContainText("Static HTML", { timeout: 60_000 });
+            await expect(speed).toContainText("ms");
+            await expect(
+                page.getByRole("button", { name: "Measure again" }),
+            ).toBeEnabled();
 
             await row(page, first.url)
                 .locator('[data-swpp-row-action="verify"]')
@@ -152,10 +168,11 @@ test.describe
 
             await page.goto(DASHBOARD);
             await page
-                .getByRole("button", { name: "Turn static serving off" })
+                .getByRole("button", { name: "Turn off", exact: true })
                 .click();
-            await expect(page.locator(".swpp-banner__title")).toContainText(
-                "Static serving is OFF",
+            await expect(page.locator("[data-swpp-serving]")).toHaveAttribute(
+                "data-swpp-serving",
+                "off",
             );
         });
     });

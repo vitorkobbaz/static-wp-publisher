@@ -138,15 +138,17 @@ final class PagesTable extends WP_List_Table {
 	/** @param Row $item */
 	protected function column_title( array $item ): string {
 		return sprintf(
-			'<strong>%1$s</strong><code class="swpp-url">%2$s</code>',
+			// The status column collapses on small screens, so the state is repeated here for them.
+			'<strong>%1$s</strong><code class="swpp-url">%2$s</code><div class="swpp-mobile-status" data-swpp-cell="status">%3$s</div>',
 			esc_html( $item['title'] ),
-			esc_html( $item['url'] )
+			esc_html( $item['url'] ),
+			$this->presenter->statusHtml( $item['status'] )
 		);
 	}
 
 	/** @param Row $item */
 	protected function column_status( array $item ): string {
-		return '<div data-swpp-cell="status">' . $this->presenter->statusHtml( $item['status'] ) . '</div><div class="swpp-result" data-swpp-result role="status" aria-live="polite"></div>';
+		return '<div data-swpp-cell="status">' . $this->presenter->statusHtml( $item['status'] ) . '</div>';
 	}
 
 	/**
@@ -190,6 +192,6 @@ final class PagesTable extends WP_List_Table {
 			);
 			$actions[ $action ] = sprintf( '<a href="%1$s" data-swpp-row-action="%2$s">%3$s</a>', esc_url( $url ), esc_attr( $action ), esc_html( $label ) );
 		}
-		return $this->row_actions( $actions, true );
+		return $this->row_actions( $actions, true ) . '<div class="swpp-result" data-swpp-result role="status" aria-live="polite"></div>';
 	}
 }

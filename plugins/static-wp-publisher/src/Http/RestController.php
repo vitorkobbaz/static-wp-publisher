@@ -16,6 +16,7 @@ use SWPP\Core\Application\Publisher;
 use SWPP\Core\Application\Queue;
 use SWPP\Core\Application\StatusReport;
 use SWPP\Core\Application\Worker;
+use SWPP\Core\Infrastructure\SpeedCheck;
 use SWPP\Core\Infrastructure\Storage;
 use SWPP\Core\Infrastructure\Verifier;
 use WP_REST_Request;
@@ -37,6 +38,15 @@ final class RestController {
 
 	public function routes(): void {
 		$permission = static fn (): bool => current_user_can( 'manage_options' );
+		register_rest_route(
+			'swpp/v1',
+			'/speed-check',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'speedCheck' ),
+				'permission_callback' => $permission,
+			)
+		);
 		register_rest_route(
 			'swpp/v1',
 			'/pages/(?P<id>\d+)/(?P<operation>regenerate|verify)',
@@ -100,6 +110,17 @@ final class RestController {
 				'enabled'        => ! empty( get_option( 'swpp_settings', array() )['enabled'] ),
 				'next_worker'    => false !== $next_worker ? $next_worker : null,
 				'latest'         => $this->queue->latestCounts(),
+			)
+		);
+	}
+
+	/** Measures the home page as static HTML and through WordPress. */
+	public function speedCheck(): WP_REST_Response {
+		$result = ( new SpeedCheck( $this->verifier ) )->measure( home_url( '/' ) );
+		return new WP_REST_Response(
+			array(
+				'result' => $result,
+				'html'   => StatusPresenter::forCurrentSettings()->speedHtml( $result ),
 			)
 		);
 	}

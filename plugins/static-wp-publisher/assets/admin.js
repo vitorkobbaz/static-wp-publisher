@@ -148,8 +148,9 @@
 				'pages/' + row.dataset.swppPost + '/' + action
 			);
 			if ( data.row ) {
-				row.querySelector( '[data-swpp-cell="status"]' ).innerHTML =
-					data.row.status;
+				row.querySelectorAll( '[data-swpp-cell="status"]' ).forEach(
+					( cell ) => ( cell.innerHTML = data.row.status )
+				);
 				row.querySelector( '[data-swpp-cell="updated"]' ).innerHTML =
 					data.row.updated;
 				row.querySelector( '[data-swpp-cell="size"]' ).innerHTML =
@@ -239,10 +240,35 @@
 		} );
 	}
 
+	/* Home page speed check, measured on the server and rendered in place. */
+	const speedForm = document.querySelector( '[data-swpp-speed-form]' );
+	const speedBody = document.querySelector( '[data-swpp-speed]' );
+	if ( speedForm && speedBody ) {
+		speedForm.addEventListener( 'submit', async ( event ) => {
+			event.preventDefault();
+			if ( busy ) {
+				return;
+			}
+			const button = speedForm.querySelector( 'button' );
+			busy = true;
+			button.disabled = true;
+			button.textContent = i18n.measuring;
+			try {
+				const data = await request( 'speed-check' );
+				speedBody.innerHTML = data.html;
+			} catch ( error ) {
+				speedBody.textContent = error.message || i18n.requestError;
+			} finally {
+				button.disabled = false;
+				button.textContent = i18n.measureAgain;
+				busy = false;
+			}
+		} );
+	}
+
 	/* Refresh automatically once background processing finishes. */
-	const live = document.querySelector( '[data-swpp-live]' );
+	const live = document.querySelector( '[data-swpp-activity]' );
 	if ( live && Number( config.inProgress ) > 0 ) {
-		live.hidden = false;
 		const poll = async () => {
 			try {
 				const status = await request( 'status', 'GET' );

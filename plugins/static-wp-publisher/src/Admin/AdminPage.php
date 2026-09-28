@@ -15,6 +15,7 @@ use SWPP\Core\Application\Queue;
 use SWPP\Core\Application\StatusReport;
 use SWPP\Core\Application\Worker;
 use SWPP\Core\Domain\PageStatus;
+use SWPP\Core\Infrastructure\SpeedCheck;
 use SWPP\Core\Infrastructure\Storage;
 use SWPP\Core\Infrastructure\Verifier;
 
@@ -41,6 +42,7 @@ final class AdminPage {
 		add_action( 'admin_post_swpp_' . PageActions::REGENERATE, array( $this, 'regenerate' ) );
 		add_action( 'admin_post_swpp_' . PageActions::VERIFY, array( $this, 'verify' ) );
 		add_action( 'admin_post_swpp_toggle_serving', array( $this, 'toggleServing' ) );
+		add_action( 'admin_post_swpp_speed_check', array( $this, 'speedCheck' ) );
 	}
 
 	public function menu(): void {
@@ -88,6 +90,8 @@ final class AdminPage {
 					'noSelection'  => __( 'Select at least one page first.', 'static-wp-publisher' ),
 					'working'      => __( 'Working…', 'static-wp-publisher' ),
 					'requestError' => __( 'The request failed. Reload the page and try again.', 'static-wp-publisher' ),
+					'measuring'    => __( 'Measuring…', 'static-wp-publisher' ),
+					'measureAgain' => __( 'Measure again', 'static-wp-publisher' ),
 				),
 			)
 		);
@@ -104,51 +108,55 @@ final class AdminPage {
 		$table->prepare_items();
 		$listing = $table->listing();
 		$enabled = $presenter->servingEnabled();
+		$counts  = $listing['counts'];
+		$pending = $counts[ PageStatus::GROUP_PENDING ];
 		?>
-		<div class="wrap swpp-admin">
-			<h1><?php esc_html_e( 'Static WP Publisher', 'static-wp-publisher' ); ?></h1>
-			<?php $this->renderNotice(); ?>
-
-			<div class="swpp-banner <?php echo $enabled ? 'swpp-banner--on' : 'swpp-banner--off'; ?>">
-				<div>
-					<p class="swpp-banner__title">
-						<span class="dashicons <?php echo $enabled ? 'dashicons-yes-alt' : 'dashicons-controls-pause'; ?>" aria-hidden="true"></span>
-						<?php echo $enabled ? esc_html__( 'Static serving is ON', 'static-wp-publisher' ) : esc_html__( 'Static serving is OFF', 'static-wp-publisher' ); ?>
-					</p>
-					<p>
-						<?php
-						echo $enabled
-							? esc_html__( 'Visitors who are not logged in receive the generated HTML. Logged-in users, search, forms, and pages without a static copy keep using WordPress.', 'static-wp-publisher' )
-							: esc_html__( 'Everyone receives normal WordPress pages. Generate the static copies, then turn static serving on.', 'static-wp-publisher' );
-						?>
-					</p>
-				</div>
-				<?php $this->actionButton( 'swpp_toggle_serving', $enabled ? __( 'Turn static serving off', 'static-wp-publisher' ) : __( 'Turn static serving on', 'static-wp-publisher' ), $enabled ? 'button' : 'button button-primary' ); ?>
+		<div class="swpp-header">
+			<div class="swpp-header__title">
+				<h1><?php esc_html_e( 'Static Publisher', 'static-wp-publisher' ); ?></h1>
+				<span class="swpp-serving swpp-serving--<?php echo $enabled ? 'on' : 'off'; ?>" data-swpp-serving="<?php echo $enabled ? 'on' : 'off'; ?>">
+					<span class="swpp-dot" aria-hidden="true"></span>
+					<?php echo $enabled ? esc_html__( 'Static serving on', 'static-wp-publisher' ) : esc_html__( 'Static serving off', 'static-wp-publisher' ); ?>
+				</span>
 			</div>
-
-			<?php $this->renderCards( $listing ); ?>
-
-			<div class="swpp-generate">
+			<div class="swpp-header__actions">
+				<?php $this->actionButton( 'swpp_toggle_serving', $enabled ? __( 'Turn off', 'static-wp-publisher' ) : __( 'Turn on', 'static-wp-publisher' ), 'button' ); ?>
 				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-swpp-generate="build" class="swpp-inline-form">
 					<input type="hidden" name="action" value="swpp_generate_all">
 					<?php wp_nonce_field( 'swpp_generate_all' ); ?>
-					<button type="submit" class="button button-primary button-large"><?php esc_html_e( 'Generate all pages now', 'static-wp-publisher' ); ?></button>
+					<button type="submit" class="button button-primary"><?php esc_html_e( 'Generate all pages', 'static-wp-publisher' ); ?></button>
 				</form>
-				<?php if ( $listing['counts'][ PageStatus::GROUP_PENDING ] > 0 ) : ?>
-					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-swpp-generate="process" class="swpp-inline-form">
-						<input type="hidden" name="action" value="swpp_process_pending">
-						<?php wp_nonce_field( 'swpp_process_pending' ); ?>
-						<button type="submit" class="button button-large"><?php esc_html_e( 'Process pending now', 'static-wp-publisher' ); ?></button>
-					</form>
-				<?php endif; ?>
-				<p class="description"><?php esc_html_e( 'Pages update automatically in the background (about once a minute) whenever you edit content. Use these buttons to do it right away.', 'static-wp-publisher' ); ?></p>
-				<div class="swpp-progress" data-swpp-progress hidden>
-					<progress data-swpp-progress-bar></progress>
-					<p data-swpp-progress-text role="status" aria-live="polite"></p>
+			</div>
+		</div>
+
+		<div class="wrap swpp-admin">
+			<hr class="wp-header-end">
+			<?php $this->renderNotice(); ?>
+
+			<?php $this->renderSummary( $listing, $enabled ); ?>
+
+			<div class="swpp-activity" data-swpp-activity<?php echo $pending > 0 ? '' : ' hidden'; ?>>
+				<div class="swpp-activity__text" data-swpp-live>
+					<span class="spinner is-active" aria-hidden="true"></span>
+					<p>
+						<?php
+						/* translators: %d: number of pages waiting to be generated. */
+						echo esc_html( sprintf( _n( '%d page is waiting to be updated. It is processed in the background about once a minute.', '%d pages are waiting to be updated. They are processed in the background about once a minute.', $pending, 'static-wp-publisher' ), $pending ) );
+						?>
+					</p>
 				</div>
-				<p class="swpp-live" data-swpp-live hidden><span class="spinner is-active" aria-hidden="true"></span><?php esc_html_e( 'Pages are being updated in the background. This list refreshes automatically when they finish.', 'static-wp-publisher' ); ?></p>
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-swpp-generate="process" class="swpp-inline-form">
+					<input type="hidden" name="action" value="swpp_process_pending">
+					<?php wp_nonce_field( 'swpp_process_pending' ); ?>
+					<button type="submit" class="button"><?php esc_html_e( 'Update now', 'static-wp-publisher' ); ?></button>
+				</form>
+			</div>
+			<div class="swpp-progress" data-swpp-progress hidden>
+				<progress data-swpp-progress-bar></progress>
+				<p data-swpp-progress-text role="status" aria-live="polite"></p>
 			</div>
 
+			<h2 class="swpp-section-title"><?php esc_html_e( 'Pages', 'static-wp-publisher' ); ?></h2>
 			<form method="get" data-swpp-table>
 				<input type="hidden" name="page" value="<?php echo esc_attr( self::SLUG ); ?>">
 				<input type="hidden" name="swpp_view" value="<?php echo esc_attr( PagesTable::currentView() ); ?>">
@@ -243,6 +251,16 @@ final class AdminPage {
 		$this->singleAction( PageActions::VERIFY );
 	}
 
+	/** No-JavaScript fallback for the home page speed check. */
+	public function speedCheck(): void {
+		$this->authorize( 'swpp_speed_check' );
+		$result = ( new SpeedCheck( $this->verifier ) )->measure( home_url( '/' ) );
+		$this->redirect(
+			'' !== $result['error'] ? $result['error'] : __( 'Speed measured.', 'static-wp-publisher' ),
+			'' !== $result['error'] ? 'error' : 'success'
+		);
+	}
+
 	public function toggleServing(): void {
 		$this->authorize( 'swpp_toggle_serving' );
 		$settings            = get_option( 'swpp_settings', array() );
@@ -278,45 +296,81 @@ final class AdminPage {
 	}
 
 	/**
+	 * Coverage sentence, composition bar with a clickable legend, and the speed check.
+	 *
 	 * @param array{counts:array<string,int>,covered:int,publishable:int} $listing
 	 */
-	private function renderCards( array $listing ): void {
-		$counts  = $listing['counts'];
-		$percent = $listing['publishable'] > 0 ? (int) floor( 100 * $listing['covered'] / $listing['publishable'] ) : 0;
-		?>
-		<div class="swpp-cards">
-			<a class="swpp-card swpp-card--<?php echo $percent >= 100 ? 'good' : 'info'; ?>" href="<?php echo esc_url( add_query_arg( 'swpp_view', PageStatus::GROUP_STATIC, $this->pageUrl() ) ); ?>">
-				<span class="swpp-card__label"><?php esc_html_e( 'Static coverage', 'static-wp-publisher' ); ?></span>
-				<span class="swpp-card__value">
-					<?php
-					/* translators: 1: pages with a static copy, 2: pages that can be static. */
-					echo esc_html( sprintf( __( '%1$s of %2$s', 'static-wp-publisher' ), number_format_i18n( $listing['covered'] ), number_format_i18n( $listing['publishable'] ) ) );
-					?>
-				</span>
-				<progress class="swpp-card__meter" max="100" value="<?php echo esc_attr( (string) $percent ); ?>"><?php echo esc_html( $percent . '%' ); ?></progress>
-				<span class="swpp-card__hint">
-					<?php
-					/* translators: %d: percentage of publishable pages that have a static copy. */
-					echo esc_html( sprintf( __( '%d%% of the pages that can be static are delivered as HTML.', 'static-wp-publisher' ), $percent ) );
-					?>
-				</span>
-			</a>
-			<?php
-			$this->card( PageStatus::GROUP_PENDING, __( 'Pending', 'static-wp-publisher' ), $counts[ PageStatus::GROUP_PENDING ], __( 'Queued, generating, or retrying.', 'static-wp-publisher' ), $counts[ PageStatus::GROUP_PENDING ] > 0 ? 'info' : 'neutral' );
-			$this->card( PageStatus::GROUP_DYNAMIC, __( 'Served by WordPress', 'static-wp-publisher' ), $counts[ PageStatus::GROUP_DYNAMIC ], __( 'Password-protected or personalized pages. They keep working normally.', 'static-wp-publisher' ), 'neutral' );
-			$this->card( PageStatus::GROUP_ATTENTION, __( 'Needs attention', 'static-wp-publisher' ), $counts[ PageStatus::GROUP_ATTENTION ], __( 'Errors, outdated copies, or protected pages still public.', 'static-wp-publisher' ), $counts[ PageStatus::GROUP_ATTENTION ] > 0 ? 'bad' : 'neutral' );
-			?>
-		</div>
-		<?php
-	}
+	private function renderSummary( array $listing, bool $enabled ): void {
+		$counts = $listing['counts'];
+		$total  = max( 1, $counts['all'] );
+		$labels = StatusPresenter::viewLabels();
+		$empty  = 0 === $listing['covered'] && 0 === $counts[ PageStatus::GROUP_PENDING ];
 
-	private function card( string $view, string $label, int $value, string $hint, string $tone ): void {
+		if ( $empty ) {
+			$headline = __( 'No static copies yet', 'static-wp-publisher' );
+			$note     = __( 'Generate all pages to create them. Visitors keep getting normal WordPress pages until you turn static serving on.', 'static-wp-publisher' );
+		} elseif ( $enabled ) {
+			/* translators: 1: pages served as static HTML, 2: pages that can be static. */
+			$headline = sprintf( __( '%1$s of %2$s pages are served as static HTML', 'static-wp-publisher' ), number_format_i18n( $listing['covered'] ), number_format_i18n( $listing['publishable'] ) );
+			$note     = $counts[ PageStatus::GROUP_ATTENTION ] > 0
+				/* translators: %d: number of pages that need attention. */
+				? sprintf( _n( '%d page needs attention.', '%d pages need attention.', $counts[ PageStatus::GROUP_ATTENTION ], 'static-wp-publisher' ), $counts[ PageStatus::GROUP_ATTENTION ] )
+				: __( 'Logged-in users, search, and forms keep using WordPress.', 'static-wp-publisher' );
+		} else {
+			/* translators: 1: pages with a static copy, 2: pages that can be static. */
+			$headline = sprintf( __( '%1$s of %2$s pages have a static copy ready', 'static-wp-publisher' ), number_format_i18n( $listing['covered'] ), number_format_i18n( $listing['publishable'] ) );
+			$note     = __( 'Static serving is off, so visitors get normal WordPress pages. Turn it on when you are ready.', 'static-wp-publisher' );
+		}
+
+		$parts = array();
+		foreach ( StatusPresenter::groupTones() as $group => $tone ) {
+			if ( $counts[ $group ] > 0 ) {
+				$parts[] = array(
+					'group' => $group,
+					'tone'  => $tone,
+					'count' => $counts[ $group ],
+					'label' => $labels[ $group ],
+				);
+			}
+		}
+		$described = implode( ', ', array_map( static fn( array $part ): string => $part['count'] . ' ' . $part['label'], $parts ) );
+		$last      = SpeedCheck::last();
 		?>
-		<a class="swpp-card swpp-card--<?php echo esc_attr( $tone ); ?>" href="<?php echo esc_url( add_query_arg( 'swpp_view', $view, $this->pageUrl() ) ); ?>" data-swpp-card="<?php echo esc_attr( $view ); ?>">
-			<span class="swpp-card__label"><?php echo esc_html( $label ); ?></span>
-			<span class="swpp-card__value"><?php echo esc_html( number_format_i18n( $value ) ); ?></span>
-			<span class="swpp-card__hint"><?php echo esc_html( $hint ); ?></span>
-		</a>
+		<section class="swpp-summary" aria-labelledby="swpp-coverage-title">
+			<div class="swpp-summary__coverage">
+				<h2 id="swpp-coverage-title" class="swpp-summary__headline" data-swpp-headline><?php echo esc_html( $headline ); ?></h2>
+				<p class="swpp-summary__note"><?php echo esc_html( $note ); ?></p>
+				<?php if ( array() !== $parts ) : ?>
+					<div class="swpp-meter" role="img" aria-label="<?php echo esc_attr( $described ); ?>">
+						<?php foreach ( $parts as $part ) : ?>
+							<span class="swpp-meter__part swpp-tone--<?php echo esc_attr( $part['tone'] ); ?>" style="width: <?php echo esc_attr( (string) round( 100 * $part['count'] / $total, 2 ) ); ?>%"></span>
+						<?php endforeach; ?>
+					</div>
+					<ul class="swpp-legend">
+						<?php foreach ( $parts as $part ) : ?>
+							<li>
+								<a href="<?php echo esc_url( add_query_arg( 'swpp_view', $part['group'], $this->pageUrl() ) ); ?>" data-swpp-legend="<?php echo esc_attr( $part['group'] ); ?>">
+									<span class="swpp-dot swpp-tone--<?php echo esc_attr( $part['tone'] ); ?>" aria-hidden="true"></span>
+									<span class="swpp-legend__label"><?php echo esc_html( $part['label'] ); ?></span>
+									<span class="swpp-legend__count swpp-num"><?php echo esc_html( number_format_i18n( $part['count'] ) ); ?></span>
+								</a>
+							</li>
+						<?php endforeach; ?>
+					</ul>
+				<?php endif; ?>
+			</div>
+			<div class="swpp-summary__speed" aria-labelledby="swpp-speed-title">
+				<h3 id="swpp-speed-title" class="swpp-summary__label"><?php esc_html_e( 'Home page speed', 'static-wp-publisher' ); ?></h3>
+				<div class="swpp-speed" data-swpp-speed aria-live="polite">
+					<?php echo wp_kses_post( StatusPresenter::forCurrentSettings()->speedHtml( $last ) ); ?>
+				</div>
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-swpp-speed-form>
+					<input type="hidden" name="action" value="swpp_speed_check">
+					<?php wp_nonce_field( 'swpp_speed_check' ); ?>
+					<button type="submit" class="button"><?php echo null === $last ? esc_html__( 'Measure speed', 'static-wp-publisher' ) : esc_html__( 'Measure again', 'static-wp-publisher' ); ?></button>
+				</form>
+			</div>
+		</section>
 		<?php
 	}
 

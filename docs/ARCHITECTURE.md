@@ -30,7 +30,12 @@ The Static Publisher screen is a read model (`StatusReport`) over the queue, the
   - *Not generated*.
 
   Colours follow the group: green only for up-to-date copies, blue for pending, amber for retrying or outdated, red for failures, grey for WordPress-only pages. Every state also has an icon.
-- **Summary cards** link to their tab. The first card shows coverage, meaning covered publishable pages out of all publishable pages. Status is resolved in PHP for up to 2,000 recently modified items (`swpp_dashboard_item_limit`), with only the columns permalinks need. A persisted URL index is pending for very large sites.
+- **Summary panel.** A single panel replaces per-metric cards.
+  - The coverage sentence counts covered pages out of publishable pages.
+  - A composition bar shows every group; its legend links to the matching tab.
+  - The home page speed check takes the median of 3 anonymous loopback requests to the static copy and 3 to WordPress, then draws them as two proportional bars. The WordPress requests carry a cache-busting query parameter that the static server never answers. A speed-up is claimed only at 1.3× or more (`Domain\SpeedComparison`). The result is stored in `swpp_speed_check`.
+  - Status is resolved in PHP for up to 2,000 recently modified items (`swpp_dashboard_item_limit`), with only the columns permalinks need. A persisted URL index is pending for very large sites.
+- **Visual language.** The screen follows native wp-admin conventions: a Site Health-style header band, the admin colour scheme (`--wp-admin-theme-color`) as the only accent, WordPress status colours, a 4px spacing grid, and tabular numerals. States are a dot plus a text label, never colour alone. Below 782px the state also appears inside the title cell, because WordPress collapses secondary columns there.
 - **List.** The list is a native `WP_List_Table` with tabs, search, pagination, checkboxes, and bulk actions (Regenerate, Check delivery). Row actions are View, Regenerate, and Check delivery.
   - With JavaScript, row and bulk actions run in place through `POST /swpp/v1/pages/{id}/{regenerate|verify}`, and only the affected rows are updated.
   - Without JavaScript, the same actions go through admin-post (row) or the list-table request (bulk, up to 50 items).
