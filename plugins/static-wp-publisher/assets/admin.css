@@ -4,9 +4,9 @@
  * the only accent, WordPress status colours for meaning, 4px grid.
  */
 
-.swpp-header,
 .swpp-admin {
 	--swpp-accent: var(--wp-admin-theme-color, #2271b1);
+	--swpp-accent-dark: var(--wp-admin-theme-color-darker-10, #135e96);
 	--swpp-text: #1d2327;
 	--swpp-muted: #50575e;
 	--swpp-line: #dcdcde;
@@ -33,51 +33,77 @@
 	font-variant-numeric: tabular-nums;
 }
 
-.swpp-muted {
-	margin: 0;
-	color: var(--swpp-muted);
-}
-
-/* Header band, like Site Health: title and state left, actions right. */
-.swpp-header {
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--swpp-space-3) var(--swpp-space-6);
-	align-items: center;
-	justify-content: space-between;
-	margin: 0 0 var(--swpp-space-6) -20px;
-	padding: var(--swpp-space-4) 20px;
-	border-bottom: 1px solid var(--swpp-line);
-	background: var(--swpp-surface);
-}
-
-.swpp-header__title {
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--swpp-space-2) var(--swpp-space-4);
-	align-items: center;
-}
-
-.swpp-header h1 {
-	margin: 0;
-	padding: 0;
-	font-size: 23px;
-	font-weight: 400;
-	line-height: 1.3;
-}
-
-.swpp-header__actions {
-	display: flex;
-	gap: var(--swpp-space-2);
-	align-items: center;
-}
-
 .swpp-inline-form {
 	display: inline-flex;
 	margin: 0;
 }
 
-/* Dots and tones shared by the state label, legend, meter, and bars. */
+/* Title row like core list screens: heading, then its actions. */
+.swpp-title {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--swpp-space-2);
+	align-items: center;
+}
+
+.swpp-admin .swpp-title .wp-heading-inline {
+	margin-right: var(--swpp-space-2);
+}
+
+.swpp-admin .swpp-title .page-title-action {
+	top: 0;
+	margin: 0;
+	cursor: pointer;
+}
+
+.swpp-admin .swpp-title-action--primary,
+.swpp-admin .swpp-summary__cta .page-title-action {
+	border-color: var(--swpp-accent);
+	background: var(--swpp-accent);
+	color: #fff;
+}
+
+.swpp-admin .swpp-title-action--primary:hover,
+.swpp-admin .swpp-summary__cta .page-title-action:hover {
+	border-color: var(--swpp-accent-dark);
+	background: var(--swpp-accent-dark);
+	color: #fff;
+}
+
+.swpp-intro {
+	max-width: 70ch;
+	margin: var(--swpp-space-2) 0 var(--swpp-space-1);
+	color: var(--swpp-muted);
+}
+
+/* Delivery state and its control, on one quiet line. */
+.swpp-delivery {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--swpp-space-3);
+	align-items: center;
+	margin: 0 0 var(--swpp-space-4);
+}
+
+.swpp-delivery__state {
+	display: inline-flex;
+	gap: var(--swpp-space-2);
+	align-items: center;
+	color: var(--swpp-text);
+	font-weight: 600;
+}
+
+.swpp-admin .notice.swpp-paused,
+.swpp-admin .notice.swpp-exposed {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--swpp-space-2) var(--swpp-space-4);
+	align-items: center;
+	padding-top: var(--swpp-space-2);
+	padding-bottom: var(--swpp-space-2);
+}
+
+/* Dots and tones shared by state labels, the meter, and the bars. */
 .swpp-dot {
 	display: inline-block;
 	flex: none;
@@ -85,29 +111,6 @@
 	height: 8px;
 	border-radius: 50%;
 	background: var(--swpp-neutral);
-}
-
-.swpp-serving {
-	display: inline-flex;
-	gap: var(--swpp-space-2);
-	align-items: center;
-	padding: 2px 10px 2px 8px;
-	border: 1px solid var(--swpp-line);
-	border-radius: 999px;
-	background: #f6f7f7;
-	color: var(--swpp-text);
-	font-weight: 600;
-}
-
-.swpp-serving--on {
-	border-color: #b8e6bf;
-	background: #edfaef;
-	color: var(--swpp-good-text);
-}
-
-.swpp-serving--on .swpp-dot {
-	background: var(--swpp-good);
-	box-shadow: 0 0 0 3px rgba(0, 163, 42, 0.18);
 }
 
 .swpp-tone--good {
@@ -130,15 +133,19 @@
 	background: repeating-linear-gradient(135deg, var(--swpp-empty) 0 4px, #f0f0f1 4px 8px);
 }
 
-/* Summary: one panel, coverage leads, speed supports. */
+/* Summary: one panel, coverage leads, the page test supports. */
 .swpp-admin .swpp-summary {
 	display: grid;
-	grid-template-columns: minmax(0, 3fr) minmax(260px, 2fr);
+	grid-template-columns: minmax(0, 1fr) minmax(300px, 1fr);
 	margin: 0 0 var(--swpp-space-4);
 	border: 1px solid var(--swpp-frame);
 	border-radius: 4px;
 	background: var(--swpp-surface);
 	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+.swpp-admin .swpp-summary--intro {
+	grid-template-columns: minmax(0, 1fr);
 }
 
 .swpp-summary__coverage,
@@ -165,8 +172,18 @@
 }
 
 .swpp-summary__note {
-	margin: calc(-1 * var(--swpp-space-1)) 0 var(--swpp-space-1);
+	max-width: 70ch;
+	margin: 0;
 	color: var(--swpp-muted);
+	line-height: 1.7;
+}
+
+.swpp-summary__note a {
+	margin-right: var(--swpp-space-1);
+}
+
+.swpp-summary__cta {
+	margin-top: var(--swpp-space-2);
 }
 
 .swpp-admin .swpp-summary__label {
@@ -178,7 +195,6 @@
 
 .swpp-meter {
 	display: flex;
-	margin-top: auto;
 	gap: 2px;
 	height: 10px;
 	overflow: hidden;
@@ -190,51 +206,11 @@
 	min-width: 6px;
 }
 
-.swpp-legend {
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--swpp-space-1) var(--swpp-space-2);
-	margin: 0;
-	padding: 0;
-	list-style: none;
-}
-
-.swpp-legend li {
-	margin: 0;
-}
-
-.swpp-legend a {
-	display: inline-flex;
-	gap: var(--swpp-space-2);
-	align-items: center;
-	min-height: 32px;
-	padding: 0 var(--swpp-space-2);
-	border-radius: 4px;
-	color: var(--swpp-text);
-	text-decoration: none;
-	transition: background-color 150ms ease-out;
-}
-
-.swpp-legend a:hover {
-	background: #f6f7f7;
-	color: var(--swpp-accent);
-}
-
-.swpp-legend a:focus,
-.swpp-header a:focus {
-	outline: 2px solid transparent;
-	box-shadow: 0 0 0 2px var(--swpp-accent);
-}
-
-.swpp-legend__count {
-	font-weight: 600;
-}
-
-/* Speed: verdict first, then the two proportional bars. */
+/* Page test: verdict, page, bars, picker, method. */
 .swpp-speed {
 	display: flex;
 	flex-direction: column;
-	gap: var(--swpp-space-3);
+	gap: var(--swpp-space-2);
 }
 
 .swpp-speed p {
@@ -243,21 +219,26 @@
 
 .swpp-speed__verdict {
 	color: var(--swpp-text);
-	font-size: 20px;
+	font-size: 16px;
 	font-weight: 600;
-	line-height: 1.3;
+	line-height: 1.4;
 	font-variant-numeric: tabular-nums;
+}
+
+.swpp-speed__page,
+.swpp-speed__lead {
+	color: var(--swpp-muted);
 }
 
 .swpp-bars {
 	display: grid;
 	gap: var(--swpp-space-2);
-	margin: 0;
+	margin: var(--swpp-space-1) 0 0;
 }
 
 .swpp-bar {
 	display: grid;
-	grid-template-columns: 92px minmax(0, 1fr);
+	grid-template-columns: 88px minmax(0, 1fr);
 	gap: var(--swpp-space-3);
 	align-items: center;
 }
@@ -288,13 +269,46 @@
 }
 
 .swpp-bar__value {
-	min-width: 64px;
+	min-width: 56px;
 	font-weight: 600;
 	text-align: right;
 }
 
-.swpp-summary__speed form {
+.swpp-speed__form {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--swpp-space-2);
+	align-items: center;
 	margin-top: auto;
+	padding-top: var(--swpp-space-2);
+}
+
+.swpp-speed__form label {
+	flex-basis: 100%;
+	color: var(--swpp-text);
+	font-weight: 600;
+}
+
+.swpp-speed__form select {
+	flex: 1 1 180px;
+	max-width: 100%;
+}
+
+.swpp-method,
+.swpp-speed__error {
+	color: var(--swpp-muted);
+}
+
+.swpp-method summary,
+.swpp-speed__error summary,
+.swpp-admin .swpp-details summary {
+	cursor: pointer;
+	color: var(--swpp-accent);
+}
+
+.swpp-method p {
+	max-width: 60ch;
+	margin: var(--swpp-space-2) 0 0;
 }
 
 /* Background activity and progress. */
@@ -349,6 +363,12 @@
 	font-variant-numeric: tabular-nums;
 }
 
+.swpp-admin .notice.swpp-paused p,
+.swpp-admin .notice.swpp-exposed p {
+	flex: 1 1 320px;
+	margin: 0;
+}
+
 /* Pages table: native list table, quieter state column. */
 .swpp-admin .swpp-section-title {
 	margin: var(--swpp-space-8) 0 var(--swpp-space-1);
@@ -357,20 +377,15 @@
 }
 
 .swpp-admin .wp-list-table .column-status {
-	width: 28%;
+	width: 32%;
 }
 
-.swpp-admin .wp-list-table .column-type,
-.swpp-admin .wp-list-table .column-size {
-	width: 10%;
+.swpp-admin .wp-list-table .column-type {
+	width: 12%;
 }
 
 .swpp-admin .wp-list-table .column-updated {
-	width: 14%;
-}
-
-.swpp-admin .wp-list-table .column-size,
-.swpp-admin .wp-list-table .column-updated {
+	width: 16%;
 	font-variant-numeric: tabular-nums;
 }
 
@@ -479,17 +494,16 @@
 }
 
 .swpp-admin .swpp-details summary {
-	cursor: pointer;
 	font-weight: 600;
 }
 
-.swpp-admin .swpp-details summary:focus {
+.swpp-admin summary:focus,
+.swpp-admin .swpp-summary__note a:focus {
 	outline: 2px solid transparent;
 	box-shadow: 0 0 0 2px var(--swpp-accent);
 }
 
-.swpp-admin ::selection,
-.swpp-header ::selection {
+.swpp-admin ::selection {
 	background: rgba(34, 113, 177, 0.2);
 }
 
@@ -497,25 +511,6 @@
 
 	.swpp-mobile-status {
 		display: block;
-	}
-
-
-	.swpp-header {
-		margin-left: -10px;
-		padding: var(--swpp-space-3) 10px;
-	}
-
-	.swpp-header__actions {
-		width: 100%;
-	}
-
-	.swpp-header__actions .swpp-inline-form:last-child {
-		flex: 1;
-	}
-
-	.swpp-header__actions .button {
-		width: 100%;
-		justify-content: center;
 	}
 
 	.swpp-admin .swpp-summary {
@@ -535,7 +530,6 @@
 
 @media (prefers-reduced-motion: reduce) {
 
-	.swpp-legend a,
 	.swpp-row--busy td {
 		transition: none;
 	}

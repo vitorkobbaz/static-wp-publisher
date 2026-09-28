@@ -6,6 +6,7 @@
 declare(strict_types=1);
 
 define( 'SWPP_FILE', __FILE__ );
+define( 'SWPP_DIR', __DIR__ . '/' );
 define( 'SWPP_VERSION', '0.1.0' );
 define( 'SWPP_EXPORT_VERSION', '0.1.0' );
 

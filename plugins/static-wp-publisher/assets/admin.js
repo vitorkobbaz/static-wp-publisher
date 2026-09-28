@@ -20,11 +20,16 @@
 			String( values[ Number( index ) - 1 ] ?? 0 )
 		);
 
-	const request = async ( route, method = 'POST' ) => {
+	const request = async ( route, method = 'POST', data = null ) => {
+		const headers = { 'X-WP-Nonce': config.nonce };
+		if ( data ) {
+			headers[ 'Content-Type' ] = 'application/json';
+		}
 		const response = await window.fetch( config.root + route, {
 			method,
 			credentials: 'same-origin',
-			headers: { 'X-WP-Nonce': config.nonce },
+			headers,
+			body: data ? JSON.stringify( data ) : undefined,
 		} );
 		const body = await response.json().catch( () => ( {} ) );
 		if ( ! response.ok ) {
@@ -75,6 +80,8 @@
 		try {
 			if ( form.dataset.swppGenerate === 'build' ) {
 				await request( 'build' );
+			} else if ( form.dataset.swppGenerate === 'fix' ) {
+				await request( 'fix' );
 			}
 			for ( let pass = 0; pass < 2000; pass++ ) {
 				const report = await request( 'process' );
@@ -153,8 +160,6 @@
 				);
 				row.querySelector( '[data-swpp-cell="updated"]' ).innerHTML =
 					data.row.updated;
-				row.querySelector( '[data-swpp-cell="size"]' ).innerHTML =
-					data.row.size;
 			}
 			setResult( row, data.message, data.level );
 			return data.ok ? data.level : 'error';
@@ -254,14 +259,28 @@
 			button.disabled = true;
 			button.textContent = i18n.measuring;
 			try {
-				const data = await request( 'speed-check' );
+				const select = speedForm.querySelector( 'select' );
+				const data = await request( 'speed-check', 'POST', {
+					post_id: Number( select ? select.value : 0 ),
+				} );
 				speedBody.innerHTML = data.html;
 			} catch ( error ) {
 				speedBody.textContent = error.message || i18n.requestError;
 			} finally {
 				button.disabled = false;
-				button.textContent = i18n.measureAgain;
+				button.textContent = i18n.measure;
 				busy = false;
+			}
+		} );
+	}
+
+	/* Pausing changes what every visitor gets: confirm first. */
+	const pause = document.querySelector( '[data-swpp-pause]' );
+	if ( pause ) {
+		pause.addEventListener( 'submit', ( event ) => {
+			// eslint-disable-next-line no-alert
+			if ( ! window.confirm( i18n.confirmPause ) ) {
+				event.preventDefault();
 			}
 		} );
 	}

@@ -21,7 +21,7 @@ use WP_List_Table;
 final class PagesTable extends WP_List_Table {
 	public const PER_PAGE = 50;
 
-	/** @var array{rows:list<Row>,filtered:int,counts:array<string,int>,covered:int,publishable:int,truncated:bool,limit:int,urls:list<string>}|null */
+	/** @var array{rows:list<Row>,filtered:int,counts:array<string,int>,covered:int,publishable:int,truncated:bool,limit:int,urls:list<string>,choices:list<array{post_id:int,title:string,url:string}>,fix:list<string>,exposed:list<array{post_id:int,title:string}>}|null */
 	private ?array $listing = null;
 
 	public function __construct(
@@ -47,7 +47,7 @@ final class PagesTable extends WP_List_Table {
 		return isset( $_GET['s'] ) ? sanitize_text_field( wp_unslash( $_GET['s'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 	}
 
-	/** @return array{rows:list<Row>,filtered:int,counts:array<string,int>,covered:int,publishable:int,truncated:bool,limit:int,urls:list<string>} */
+	/** @return array{rows:list<Row>,filtered:int,counts:array<string,int>,covered:int,publishable:int,truncated:bool,limit:int,urls:list<string>,choices:list<array{post_id:int,title:string,url:string}>,fix:list<string>,exposed:list<array{post_id:int,title:string}>} */
 	public function listing(): array {
 		if ( null === $this->listing ) {
 			$this->listing = $this->report->listing( self::currentView(), self::currentSearch(), $this->get_pagenum(), self::PER_PAGE );
@@ -69,21 +69,26 @@ final class PagesTable extends WP_List_Table {
 
 	/** @return array<string,string> */
 	public function get_columns(): array {
-		return array(
+		$columns = array(
 			'cb'      => '<input type="checkbox" />',
 			'title'   => __( 'Page', 'static-wp-publisher' ),
 			'status'  => __( 'Status', 'static-wp-publisher' ),
 			'type'    => __( 'Type', 'static-wp-publisher' ),
-			'updated' => __( 'Static copy updated', 'static-wp-publisher' ),
-			'size'    => __( 'Size', 'static-wp-publisher' ),
+			'updated' => __( 'Last updated', 'static-wp-publisher' ),
 		);
+		// A type column only helps when pages and posts (or custom types) are mixed.
+		$types = array_unique( array_map( static fn( array $row ): string => $row['type'], $this->listing()['rows'] ) );
+		if ( count( $types ) < 2 ) {
+			unset( $columns['type'] );
+		}
+		return $columns;
 	}
 
 	/** @return array<string,string> */
 	protected function get_bulk_actions(): array {
 		return array(
-			'swpp-' . PageActions::REGENERATE => __( 'Regenerate', 'static-wp-publisher' ),
-			'swpp-' . PageActions::VERIFY     => __( 'Check delivery', 'static-wp-publisher' ),
+			'swpp-' . PageActions::REGENERATE => __( 'Update static copy', 'static-wp-publisher' ),
+			'swpp-' . PageActions::VERIFY     => __( 'Test visitor version', 'static-wp-publisher' ),
 		);
 	}
 
@@ -93,6 +98,10 @@ final class PagesTable extends WP_List_Table {
 		$current = self::currentView();
 		$views   = array();
 		foreach ( StatusPresenter::viewLabels() as $key => $label ) {
+			// Empty tabs are noise; keep All and whichever tab is open.
+			if ( 'all' !== $key && $current !== $key && 0 === ( $counts[ $key ] ?? 0 ) ) {
+				continue;
+			}
 			$url           = 'all' === $key ? $this->page_url : add_query_arg( 'swpp_view', $key, $this->page_url );
 			$views[ $key ] = sprintf(
 				'<a href="%1$s"%2$s data-swpp-view="%3$s">%4$s <span class="count">(%5$s)</span></a>',
@@ -109,10 +118,10 @@ final class PagesTable extends WP_List_Table {
 	public function no_items(): void {
 		$messages = array(
 			PageStatus::GROUP_STATIC    => __( 'No page has an up-to-date static copy yet.', 'static-wp-publisher' ),
-			PageStatus::GROUP_PENDING   => __( 'Nothing is waiting. Every page is processed.', 'static-wp-publisher' ),
+			PageStatus::GROUP_PENDING   => __( 'Nothing is being updated right now.', 'static-wp-publisher' ),
 			PageStatus::GROUP_ATTENTION => __( 'Nothing needs attention.', 'static-wp-publisher' ),
-			PageStatus::GROUP_DYNAMIC   => __( 'Every page can be served as static HTML.', 'static-wp-publisher' ),
-			PageStatus::GROUP_MISSING   => __( 'Every page has been generated at least once.', 'static-wp-publisher' ),
+			PageStatus::GROUP_DYNAMIC   => __( 'Every page can have a static copy.', 'static-wp-publisher' ),
+			PageStatus::GROUP_MISSING   => __( 'Every page has a static copy or a reason not to.', 'static-wp-publisher' ),
 		);
 		$search   = self::currentSearch();
 		echo esc_html( '' !== $search ? __( 'No pages match your search.', 'static-wp-publisher' ) : ( $messages[ self::currentView() ] ?? __( 'No public pages found.', 'static-wp-publisher' ) ) );
@@ -159,7 +168,6 @@ final class PagesTable extends WP_List_Table {
 		return match ( $column_name ) {
 			'type'    => esc_html( $item['type'] ),
 			'updated' => '<span data-swpp-cell="updated">' . $this->presenter->timeHtml( $item['published_at'] ) . '</span>',
-			'size'    => '<span data-swpp-cell="size">' . $this->presenter->sizeHtml( $item['bytes'] ) . '</span>',
 			default   => '',
 		};
 	}
@@ -177,8 +185,8 @@ final class PagesTable extends WP_List_Table {
 			'view' => sprintf( '<a href="%1$s" target="_blank" rel="noopener noreferrer">%2$s</a>', esc_url( $item['url'] ), esc_html__( 'View', 'static-wp-publisher' ) ),
 		);
 		foreach ( array(
-			PageActions::REGENERATE => __( 'Regenerate', 'static-wp-publisher' ),
-			PageActions::VERIFY     => __( 'Check delivery', 'static-wp-publisher' ),
+			PageActions::REGENERATE => __( 'Update static copy', 'static-wp-publisher' ),
+			PageActions::VERIFY     => __( 'Test visitor version', 'static-wp-publisher' ),
 		) as $action => $label ) {
 			$url                = wp_nonce_url(
 				add_query_arg(

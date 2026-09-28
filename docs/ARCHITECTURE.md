@@ -30,11 +30,23 @@ The Static Publisher screen is a read model (`StatusReport`) over the queue, the
   - *Not generated*.
 
   Colours follow the group: green only for up-to-date copies, blue for pending, amber for retrying or outdated, red for failures, grey for WordPress-only pages. Every state also has an icon.
-- **Summary panel.** A single panel replaces per-metric cards.
-  - The coverage sentence counts covered pages out of publishable pages.
-  - A composition bar shows every group; its legend links to the matching tab.
-  - The home page speed check takes the median of 3 anonymous loopback requests to the static copy and 3 to WordPress, then draws them as two proportional bars. The WordPress requests carry a cache-busting query parameter that the static server never answers. A speed-up is claimed only at 1.3× or more (`Domain\SpeedComparison`). The result is stored in `swpp_speed_check`.
+- **Title row.** It follows core list screens: the heading, then one contextual action.
+  - A fresh site gets "Create static copies".
+  - When pages lack a good copy, the action is "Fix N pages" (`POST /swpp/v1/fix` queues exactly those pages).
+  - A healthy site gets only "Update all static copies".
+- **Delivery state.** A one-line "Static delivery: On · Pause" sits below the title, and pausing asks for confirmation. While paused, a persistent notice offers "Resume". A protected page that still has a public copy gets its own error notice with a one-click fix.
+- **First run.** A single explanatory panel with "Create static copies" replaces the summary and the table.
+- **Summary panel.**
+  - The coverage sentence counts against every page ("13 of 16 pages load as fast static HTML").
+  - Next comes a composition bar. Under it, a sentence says what the other pages are; each clause links to its tab.
   - Status is resolved in PHP for up to 2,000 recently modified items (`swpp_dashboard_item_limit`), with only the columns permalinks need. A persisted URL index is pending for very large sites.
+- **Server response time.** One action, "Test visitor version", is used by the row, bulk, and summary page picker (`POST /swpp/v1/speed-check` with `post_id`).
+  - It requests the page 3 times the way a visitor gets it and 3 times through WordPress (with a cache-busting query parameter the static server never answers), from this server.
+  - It reports what visitors received and both median times, in seconds.
+  - A speed-up is claimed only at 1.3× or more (`Domain\SpeedComparison`).
+  - "How is this measured?" states that this is server response time, not a PageSpeed score, and links to PageSpeed Insights.
+  - The last result is stored in `swpp_speed_check`.
+- **Assets.** CSS and JS are versioned by content hash, so updates bypass browser and CDN caches.
 - **Visual language.** The screen follows native wp-admin conventions: a Site Health-style header band, the admin colour scheme (`--wp-admin-theme-color`) as the only accent, WordPress status colours, a 4px spacing grid, and tabular numerals. States are a dot plus a text label, never colour alone. Below 782px the state also appears inside the title cell, because WordPress collapses secondary columns there.
 - **List.** The list is a native `WP_List_Table` with tabs, search, pagination, checkboxes, and bulk actions (Regenerate, Check delivery). Row actions are View, Regenerate, and Check delivery.
   - With JavaScript, row and bulk actions run in place through `POST /swpp/v1/pages/{id}/{regenerate|verify}`, and only the affected rows are updated.

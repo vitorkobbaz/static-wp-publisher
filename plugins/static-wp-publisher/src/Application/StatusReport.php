@@ -32,7 +32,7 @@ final class StatusReport {
 	/**
 	 * Resolves every visitor-facing page, then filters, searches and paginates.
 	 *
-	 * @return array{rows:list<Row>,filtered:int,counts:array<string,int>,covered:int,publishable:int,truncated:bool,limit:int,urls:list<string>}
+	 * @return array{rows:list<Row>,filtered:int,counts:array<string,int>,covered:int,publishable:int,truncated:bool,limit:int,urls:list<string>,choices:list<array{post_id:int,title:string,url:string}>,fix:list<string>,exposed:list<array{post_id:int,title:string}>}
 	 */
 	public function listing( string $view, string $search, int $paged, int $per_page ): array {
 		$limit   = max( 50, (int) apply_filters( 'swpp_dashboard_item_limit', self::DEFAULT_LIMIT ) );
@@ -54,7 +54,36 @@ final class StatusReport {
 			}
 		}
 
-		$urls   = array_map( static fn( array $row ): string => $row['url'], $rows );
+		$urls    = array_map( static fn( array $row ): string => $row['url'], $rows );
+		$home    = home_url( '/' );
+		$choices = array();
+		$fix     = array();
+		$exposed = array();
+		foreach ( $rows as $row ) {
+			$group = $row['status']->group();
+			if ( PageStatus::GROUP_ATTENTION === $group || PageStatus::GROUP_MISSING === $group ) {
+				$fix[] = $row['url'];
+			}
+			if ( PageStatus::EXPOSED === $row['status']->key ) {
+				$exposed[] = array(
+					'post_id' => $row['post_id'],
+					'title'   => $row['title'],
+				);
+			}
+			if ( $row['status']->isPublishable() && count( $choices ) < 25 ) {
+				$choice = array(
+					'post_id' => $row['post_id'],
+					'title'   => $row['title'],
+					'url'     => $row['url'],
+				);
+				// The home page leads the page picker.
+				if ( $home === $row['url'] ) {
+					array_unshift( $choices, $choice );
+				} else {
+					$choices[] = $choice;
+				}
+			}
+		}
 		$view   = in_array( $view, self::VIEWS, true ) ? $view : 'all';
 		$needle = function_exists( 'mb_strtolower' ) ? mb_strtolower( trim( $search ) ) : strtolower( trim( $search ) );
 		$rows   = array_values(
@@ -84,6 +113,9 @@ final class StatusReport {
 			'truncated'   => $trunc,
 			'limit'       => $limit,
 			'urls'        => $urls,
+			'choices'     => $choices,
+			'fix'         => $fix,
+			'exposed'     => $exposed,
 		);
 	}
 
@@ -153,8 +185,10 @@ final class StatusReport {
 			update_object_term_cache( array_map( static fn( array $record ): int => (int) $record['ID'], $records ), $types );
 		}
 		foreach ( $records as $record ) {
-			$record['filter'] = 'raw';
-			$entry            = $this->entryFor( new WP_Post( (object) $record ) );
+			// sanitize_post() casts ID/post_parent to int like get_post() does; core compares
+			// them strictly (the static front page is detected with `===`).
+			$post  = sanitize_post( (object) $record, 'raw' );
+			$entry = $this->entryFor( new WP_Post( $post ) );
 			if ( null !== $entry ) {
 				$out[] = $entry;
 			}

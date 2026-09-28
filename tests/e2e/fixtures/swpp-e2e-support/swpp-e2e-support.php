@@ -64,12 +64,14 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			}
 			deactivate_plugins( array( self::EXPORT_PLUGIN, self::CORE_PLUGIN ), false );
 			$this->dropTables();
-			foreach ( array( 'swpp_settings', 'swpp_redirects', 'swpp_schema_version', 'swpp_full_rebuild_recommended', 'swpp_inventory_scan', 'swpp_e2e_migrated_by' ) as $option ) {
+			foreach ( array( 'swpp_settings', 'swpp_redirects', 'swpp_schema_version', 'swpp_full_rebuild_recommended', 'swpp_inventory_scan', 'swpp_e2e_migrated_by', 'swpp_speed_check' ) as $option ) {
 				delete_option( $option );
 			}
 
 			$this->removeArtifacts();
 			update_option( 'permalink_structure', '/index.php/%postname%/' );
+			update_option( 'show_on_front', 'posts' );
+			update_option( 'page_on_front', 0 );
 			flush_rewrite_rules();
 
 			$result = activate_plugin( self::CORE_PLUGIN, '', false, false );
@@ -221,6 +223,18 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 					'url' => (string) get_permalink( (int) $post_id ),
 				)
 			);
+		}
+
+		/**
+		 * Uses a page as the static front page (0 restores the latest-posts home).
+		 *
+		 * @subcommand front-page
+		 */
+		public function front_page( array $args ): void {
+			$post_id = (int) ( $args[0] ?? 0 );
+			update_option( 'show_on_front', $post_id > 0 ? 'page' : 'posts' );
+			update_option( 'page_on_front', $post_id );
+			$this->json( array( 'front_page' => $post_id ) );
 		}
 
 		/** Adds a password to a page through the normal update path. */

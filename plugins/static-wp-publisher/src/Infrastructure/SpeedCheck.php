@@ -9,38 +9,44 @@ declare(strict_types=1);
 
 namespace SWPP\Core\Infrastructure;
 
+/**
+ * @phpstan-type SpeedResult array{url:string,label:string,post_id:int,static_ms:?int,dynamic_ms:?int,served_static:bool,measured_at:int,error:string}
+ */
 final class SpeedCheck {
-	public const OPTION   = 'swpp_speed_check';
-	private const SAMPLES = 3;
+	public const OPTION  = 'swpp_speed_check';
+	public const SAMPLES = 3;
 
 	public function __construct( private readonly Verifier $verifier ) {}
 
 	/**
-	 * Takes three anonymous samples of each path from this server and keeps the medians.
-	 * The WordPress path adds an unknown query parameter, which the static server never
-	 * answers, so the same page is rendered dynamically.
+	 * Requests the page SAMPLES times as an anonymous visitor (static copy when one is
+	 * served) and SAMPLES times through WordPress, from this server, and keeps the
+	 * medians. The WordPress path adds an unknown query parameter, which the static
+	 * server never answers, so the same page is built live. The last result is stored.
 	 *
-	 * @return array{url:string,static_ms:?int,dynamic_ms:?int,served_static:bool,measured_at:int,error:string}
+	 * @return SpeedResult
 	 */
-	public function measure( string $url ): array {
+	public function measure( string $url, string $label, int $post_id ): array {
 		$static  = array();
 		$dynamic = array();
 		$served  = true;
 		$error   = '';
 		for ( $i = 0; $i < self::SAMPLES; ++$i ) {
-			$hit = $this->verifier->check( $url );
-			$raw = $this->verifier->check( add_query_arg( 'swpp_speed', wp_generate_password( 8, false ), $url ) );
-			if ( ! $hit['ok'] || ! $raw['ok'] ) {
-				$error = '' !== $hit['error'] ? $hit['error'] : $raw['error'];
+			$visitor = $this->verifier->check( $url );
+			$live    = $this->verifier->check( add_query_arg( 'swpp_speed', wp_generate_password( 8, false ), $url ) );
+			if ( ! $visitor['ok'] || ! $live['ok'] ) {
+				$error = '' !== $visitor['error'] ? $visitor['error'] : $live['error'];
 				break;
 			}
-			$served    = $served && $hit['static'];
-			$static[]  = $hit['milliseconds'];
-			$dynamic[] = $raw['milliseconds'];
+			$served    = $served && $visitor['static'];
+			$static[]  = $visitor['milliseconds'];
+			$dynamic[] = $live['milliseconds'];
 		}
 
 		$result = array(
 			'url'           => $url,
+			'label'         => $label,
+			'post_id'       => $post_id,
 			'static_ms'     => '' === $error && $served ? self::median( $static ) : null,
 			'dynamic_ms'    => '' === $error ? self::median( $dynamic ) : null,
 			'served_static' => '' === $error && $served,
@@ -51,7 +57,7 @@ final class SpeedCheck {
 		return $result;
 	}
 
-	/** @return array{url:string,static_ms:?int,dynamic_ms:?int,served_static:bool,measured_at:int,error:string}|null */
+	/** @return SpeedResult|null */
 	public static function last(): ?array {
 		$stored = get_option( self::OPTION, null );
 		if ( ! is_array( $stored ) || ! isset( $stored['url'], $stored['measured_at'] ) ) {
@@ -59,6 +65,8 @@ final class SpeedCheck {
 		}
 		return array(
 			'url'           => (string) $stored['url'],
+			'label'         => isset( $stored['label'] ) ? (string) $stored['label'] : (string) $stored['url'],
+			'post_id'       => isset( $stored['post_id'] ) ? (int) $stored['post_id'] : 0,
 			'static_ms'     => isset( $stored['static_ms'] ) ? (int) $stored['static_ms'] : null,
 			'dynamic_ms'    => isset( $stored['dynamic_ms'] ) ? (int) $stored['dynamic_ms'] : null,
 			'served_static' => ! empty( $stored['served_static'] ),

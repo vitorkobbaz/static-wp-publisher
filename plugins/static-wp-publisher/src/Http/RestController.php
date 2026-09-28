@@ -45,6 +45,22 @@ final class RestController {
 				'methods'             => 'POST',
 				'callback'            => array( $this, 'speedCheck' ),
 				'permission_callback' => $permission,
+				'args'                => array(
+					'post_id' => array(
+						'type'    => 'integer',
+						'minimum' => 0,
+						'default' => 0,
+					),
+				),
+			)
+		);
+		register_rest_route(
+			'swpp/v1',
+			'/fix',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'fix' ),
+				'permission_callback' => $permission,
 			)
 		);
 		register_rest_route(
@@ -115,14 +131,27 @@ final class RestController {
 	}
 
 	/** Measures the home page as static HTML and through WordPress. */
-	public function speedCheck(): WP_REST_Response {
-		$result = ( new SpeedCheck( $this->verifier ) )->measure( home_url( '/' ) );
+	public function speedCheck( WP_REST_Request $request ): WP_REST_Response {
+		$row = $this->report->rowFor( absint( $request->get_param( 'post_id' ) ) );
+		if ( null === $row ) {
+			return new WP_REST_Response( array( 'message' => __( 'That page is not public content of this site.', 'static-wp-publisher' ) ), 404 );
+		}
+		$result = ( new SpeedCheck( $this->verifier ) )->measure( $row['url'], $row['title'], $row['post_id'] );
 		return new WP_REST_Response(
 			array(
 				'result' => $result,
 				'html'   => StatusPresenter::forCurrentSettings()->speedHtml( $result ),
 			)
 		);
+	}
+
+	/** Queues every page that has no static copy or needs attention, for the worker loop. */
+	public function fix(): WP_REST_Response {
+		$queued = 0;
+		foreach ( $this->report->listing( 'all', '', 1, 10 )['fix'] as $url ) {
+			$queued += $this->queue->enqueue( $url, 'manual' ) ? 1 : 0;
+		}
+		return new WP_REST_Response( array( 'queued' => $queued ), 202 );
 	}
 
 	/**
@@ -146,7 +175,6 @@ final class RestController {
 						'group'   => $row['status']->group(),
 						'status'  => $presenter->statusHtml( $row['status'] ),
 						'updated' => $presenter->timeHtml( $row['published_at'] ),
-						'size'    => $presenter->sizeHtml( $row['bytes'] ),
 					),
 				)
 			)
