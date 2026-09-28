@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace SWPP\Core\Serving;
 
 use Throwable;
+use SWPP\Core\Domain\QueryPolicy;
 use SWPP\Core\Infrastructure\Storage;
 
 final class LocalServer {
@@ -32,7 +33,12 @@ final class LocalServer {
 			return;
 		}
 
-		$request_uri  = sanitize_text_field( wp_unslash( (string) ( $_SERVER['REQUEST_URI'] ?? '/' ) ) );
+		$request_uri = sanitize_text_field( wp_unslash( (string) ( $_SERVER['REQUEST_URI'] ?? '/' ) ) );
+		$query       = (string) wp_parse_url( $request_uri, PHP_URL_QUERY );
+		$ignored     = array_values( array_map( 'strval', (array) apply_filters( 'swpp_ignored_query_parameters', QueryPolicy::TRACKING_PARAMETERS ) ) );
+		if ( ! QueryPolicy::isCacheable( $query, $ignored ) ) {
+			return;
+		}
 		$request_path = strtok( $request_uri, '?' );
 		$url          = home_url( false !== $request_path ? $request_path : '/' );
 		try {

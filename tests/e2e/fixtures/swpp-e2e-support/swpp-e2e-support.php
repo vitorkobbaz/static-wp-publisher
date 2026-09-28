@@ -31,12 +31,15 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 
 		private const UPGRADE_PAGE_PREFIX = 'swpp-e2e-upgrade-';
 
+		private const BATCH_PAGE_PREFIX = 'swpp-e2e-batch-';
+
 		/** Resets Core and performs a clean activation. */
 		public function reset(): void {
 			global $wpdb;
 			require_once ABSPATH . 'wp-admin/includes/plugin.php';
 
 			$this->deleteUpgradePages();
+			$this->deleteBatchPages();
 			deactivate_plugins( array( self::EXPORT_PLUGIN, self::CORE_PLUGIN ), false );
 			$this->dropTables();
 			foreach ( array( 'swpp_settings', 'swpp_redirects', 'swpp_schema_version', 'swpp_full_rebuild_recommended', 'swpp_inventory_scan', 'swpp_e2e_migrated_by' ) as $option ) {
@@ -134,6 +137,37 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 				\WP_CLI::error( $result->get_error_message() );
 			}
 			$this->json( array( 'id' => $post_id, 'marker' => $marker ) );
+		}
+
+		/**
+		 * Creates N published pages with deterministic slugs and markers.
+		 *
+		 * @subcommand create-batch
+		 */
+		public function create_batch( array $args ): void {
+			$count = max( 1, min( 20, (int) ( $args[0] ?? 8 ) ) );
+			$this->deleteBatchPages();
+			$pages = array();
+			for ( $i = 1; $i <= $count; ++$i ) {
+				$post_id = wp_insert_post(
+					array(
+						'post_type'    => 'page',
+						'post_status'  => 'publish',
+						'post_title'   => 'SWPP batch ' . $i,
+						'post_name'    => self::BATCH_PAGE_PREFIX . $i,
+						'post_content' => sprintf( '<p data-swpp-e2e="batch-%1$d">SWPP batch %1$d</p>', $i ),
+					),
+					true
+				);
+				if ( is_wp_error( $post_id ) ) {
+					\WP_CLI::error( $post_id->get_error_message() );
+				}
+				$pages[] = array(
+					'id'  => (int) $post_id,
+					'url' => (string) get_permalink( (int) $post_id ),
+				);
+			}
+			$this->json( array( 'pages' => $pages ) );
 		}
 
 		/** Runs the compatibility worker once. */
@@ -400,6 +434,19 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 				if ( $existing instanceof \WP_Post ) {
 					wp_delete_post( $existing->ID, true );
 				}
+			}
+		}
+
+		private function deleteBatchPages(): void {
+			global $wpdb;
+			$ids = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT ID FROM {$wpdb->posts} WHERE post_type = 'page' AND post_name LIKE %s",
+					$wpdb->esc_like( self::BATCH_PAGE_PREFIX ) . '%'
+				)
+			);
+			foreach ( $ids as $id ) {
+				wp_delete_post( (int) $id, true );
 			}
 		}
 

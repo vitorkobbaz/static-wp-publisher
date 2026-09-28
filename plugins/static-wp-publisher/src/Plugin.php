@@ -14,6 +14,7 @@ use SWPP\Core\Application\Invalidator;
 use SWPP\Core\Application\Inventory;
 use SWPP\Core\Application\Publisher;
 use SWPP\Core\Application\Queue;
+use SWPP\Core\Application\Worker;
 use SWPP\Core\Cli\Commands;
 use SWPP\Core\Http\RestController;
 use SWPP\Core\Infrastructure\Database;
@@ -62,7 +63,6 @@ final class Plugin {
 		$database  = new Database();
 		$queue     = new Queue( $database );
 		$publisher = new Publisher( new Renderer(), new Storage(), $database );
-		$limit     = (int) apply_filters( 'swpp_worker_batch_size', 3 );
 
 		if ( false !== get_option( 'swpp_full_rebuild_recommended', false ) ) {
 			// Delete first so a concurrent content change can safely request another sweep.
@@ -72,18 +72,6 @@ final class Plugin {
 			( new Inventory( $queue ) )->enqueueBatch();
 		}
 
-		for ( $i = 0; $i < max( 1, min( 50, $limit ) ); ++$i ) {
-			$job = $queue->claim();
-			if ( null === $job ) {
-				break;
-			}
-
-			$result = $publisher->publish( $job->url );
-			if ( $result->success ) {
-				$queue->complete( $job );
-			} else {
-				$queue->fail( $job, $result->message );
-			}
-		}
+		( new Worker( $queue, $publisher ) )->run( Worker::requestBudget() );
 	}
 }

@@ -12,6 +12,7 @@ namespace SWPP\Core\Admin;
 use SWPP\Core\Application\Inventory;
 use SWPP\Core\Application\Publisher;
 use SWPP\Core\Application\Queue;
+use SWPP\Core\Application\Worker;
 use SWPP\Core\Infrastructure\Storage;
 
 final class AdminPage {
@@ -95,17 +96,25 @@ final class AdminPage {
 
 	public function processNow(): void {
 		$this->authorize( 'swpp_process_now' );
-		$job = $this->queue->claim();
-		if ( null === $job ) {
+		$report = ( new Worker( $this->queue, $this->publisher ) )->run( Worker::requestBudget() );
+		if ( 0 === $report->processed ) {
 			$this->redirect( __( 'The queue is empty.', 'static-wp-publisher' ) );
 		}
-		$result = $this->publisher->publish( $job->url );
-		if ( $result->success ) {
-			$this->queue->complete( $job );
-		} else {
-			$this->queue->fail( $job, $result->message );
+
+		$pending = $this->queue->counts()['pending'];
+		$notice  = sprintf(
+			/* translators: 1: processed URLs, 2: published URLs, 3: failed URLs, 4: URLs still pending. */
+			__( '%1$d URL(s) processed: %2$d published, %3$d failed. %4$d still pending.', 'static-wp-publisher' ),
+			$report->processed,
+			$report->succeeded,
+			$report->failed,
+			$pending
+		);
+		if ( null !== $report->lastError ) {
+			/* translators: %s: URL and error message of the last failed job. */
+			$notice .= ' ' . sprintf( __( 'Last error: %s', 'static-wp-publisher' ), $report->lastError );
 		}
-		$this->redirect( $result->message );
+		$this->redirect( $notice );
 	}
 
 	public function toggleServing(): void {

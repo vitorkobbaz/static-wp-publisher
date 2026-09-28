@@ -12,6 +12,7 @@ namespace SWPP\Core\Http;
 use SWPP\Core\Application\Inventory;
 use SWPP\Core\Application\Publisher;
 use SWPP\Core\Application\Queue;
+use SWPP\Core\Application\Worker;
 use SWPP\Core\Infrastructure\Storage;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -104,27 +105,14 @@ final class RestController {
 	}
 
 	public function process(): WP_REST_Response {
-		$job = $this->queue->claim();
-		if ( null === $job ) {
-			return new WP_REST_Response(
-				array(
-					'processed' => false,
-					'message'   => 'Queue is empty.',
-				)
-			);
-		}
-		$result = $this->publisher->publish( $job->url );
-		if ( $result->success ) {
-			$this->queue->complete( $job );
-		} else {
-			$this->queue->fail( $job, $result->message );
-		}
+		$report = ( new Worker( $this->queue, $this->publisher ) )->run( Worker::requestBudget() );
 		return new WP_REST_Response(
 			array(
-				'processed' => true,
-				'success'   => $result->success,
-				'message'   => $result->message,
-				'url'       => $job->url,
+				'processed'  => $report->processed,
+				'succeeded'  => $report->succeeded,
+				'failed'     => $report->failed,
+				'last_error' => $report->lastError,
+				'pending'    => $this->queue->counts()['pending'],
 			)
 		);
 	}
