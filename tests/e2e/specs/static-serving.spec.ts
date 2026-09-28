@@ -4,6 +4,14 @@ import { processQueue } from "../support/queue";
 
 type BatchFixture = { pages: { id: number; url: string }[] };
 type ArtifactRows = { artifacts: { url: string }[] };
+type JobRows = ArtifactRows & {
+    jobs: {
+        url: string;
+        status: string;
+        last_error: string | null;
+        active_hash: string | null;
+    }[];
+};
 
 const home = `${(process.env.WP_E2E_BASE_URL ?? "http://localhost").replace(/\/+$/, "")}/`;
 
@@ -68,5 +76,51 @@ test.describe
         expect(pageStatic.headers()["x-static-wp-publisher"]).toBe("HIT");
         const pageDynamic = await request.get(`${page.url}?preview=true`);
         expect(pageDynamic.headers()["x-static-wp-publisher"]).toBeUndefined();
+    });
+
+    test("a page that gains a password loses its static copy and is not retried", async ({
+        request,
+    }) => {
+        const batch = parseFixtureJson<BatchFixture>(
+            runWp(["swpp-e2e", "create-batch", "1"]),
+        );
+        const page = batch.pages[0];
+        await processQueue(request);
+        parseFixtureJson(runWp(["swpp-e2e", "enable"]));
+        const before = await request.get(page.url);
+        expect(before.headers()["x-static-wp-publisher"]).toBe("HIT");
+        expect(await before.text()).toContain('data-swpp-e2e="batch-1"');
+
+        parseFixtureJson(
+            runWp(["swpp-e2e", "protect", String(page.id), "swpp-secret"]),
+        );
+        await processQueue(request);
+
+        let state = parseFixtureJson<JobRows>(
+            runWp(["swpp-e2e", "migration-state"]),
+        );
+        expect(state.artifacts.map((row) => row.url)).not.toContain(page.url);
+        const jobs = state.jobs.filter((row) => row.url === page.url);
+        const latest = jobs[jobs.length - 1];
+        expect(latest?.status).toBe("skipped");
+        expect(latest?.last_error).toBe("Page is password protected.");
+        expect(latest?.active_hash).toBeNull();
+
+        const after = await request.get(page.url);
+        expect(after.headers()["x-static-wp-publisher"]).toBeUndefined();
+        const body = await after.text();
+        expect(body).toContain('name="post_password"');
+        expect(body).not.toContain('data-swpp-e2e="batch-1"');
+
+        // A full inventory scan no longer queues password-protected content.
+        parseFixtureJson(runWp(["swpp-e2e", "inventory"]));
+        state = parseFixtureJson<JobRows>(
+            runWp(["swpp-e2e", "migration-state"]),
+        );
+        expect(
+            state.jobs.filter(
+                (row) => row.url === page.url && row.status === "pending",
+            ),
+        ).toEqual([]);
     });
 });

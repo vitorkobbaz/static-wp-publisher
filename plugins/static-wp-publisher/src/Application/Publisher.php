@@ -39,6 +39,17 @@ final class Publisher {
 		}
 
 		$eligible = Eligibility::check( $response['status'], $response['headers'], $response['body'] );
+		if ( ! $eligible->success && ! $eligible->retryable ) {
+			// The live page is no longer publishable (e.g. it gained a password): an older
+			// static copy must not keep exposing it. Removing it falls back to WordPress.
+			try {
+				$this->storage->delete( $url );
+				$this->removeArtifact( $url );
+			} catch ( Throwable $error ) {
+				return new PublishResult( false, $error->getMessage() );
+			}
+			return $eligible;
+		}
 		if ( ! $eligible->success ) {
 			return $eligible;
 		}

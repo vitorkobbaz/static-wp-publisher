@@ -31,11 +31,12 @@ final class Worker {
 		$started   = microtime( true );
 		$succeeded = 0;
 		$failed    = 0;
+		$skipped   = 0;
 		$error     = null;
 
-		while ( $succeeded + $failed < $budget->limit ) {
+		while ( $succeeded + $failed + $skipped < $budget->limit ) {
 			// Check before claiming so no job is leased and then abandoned.
-			if ( $budget->seconds > 0 && $succeeded + $failed > 0 && microtime( true ) - $started >= $budget->seconds ) {
+			if ( $budget->seconds > 0 && $succeeded + $failed + $skipped > 0 && microtime( true ) - $started >= $budget->seconds ) {
 				break;
 			}
 			$job = $this->queue->claim();
@@ -47,6 +48,9 @@ final class Worker {
 			if ( $result->success ) {
 				$this->queue->complete( $job );
 				++$succeeded;
+			} elseif ( ! $result->retryable ) {
+				$this->queue->skip( $job, $result->message );
+				++$skipped;
 			} else {
 				$this->queue->fail( $job, $result->message );
 				++$failed;
@@ -54,6 +58,6 @@ final class Worker {
 			}
 		}
 
-		return new WorkerReport( $succeeded + $failed, $succeeded, $failed, $error );
+		return new WorkerReport( $succeeded + $failed + $skipped, $succeeded, $failed, $error, $skipped );
 	}
 }

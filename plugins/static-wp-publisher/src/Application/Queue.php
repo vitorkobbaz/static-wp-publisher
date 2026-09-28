@@ -151,6 +151,69 @@ final class Queue {
 		);
 	}
 
+	/** Closes a job whose URL is deterministically not publishable; it is not retried. */
+	public function skip( QueueJob $job, string $reason ): bool {
+		global $wpdb;
+		return 1 === $wpdb->update(
+			$this->database->table( 'jobs' ),
+			array(
+				'status'      => 'skipped',
+				'active_hash' => null,
+				'locked_at'   => null,
+				'locked_by'   => null,
+				'last_error'  => function_exists( 'mb_substr' ) ? mb_substr( $reason, 0, 4000 ) : substr( $reason, 0, 4000 ),
+				'updated_at'  => current_time( 'mysql', true ),
+			),
+			array(
+				'id'        => $job->id,
+				'status'    => 'running',
+				'locked_by' => $job->lockToken,
+			),
+			array( '%s', '%s', '%s', '%s', '%s', '%s' ),
+			array( '%d', '%s', '%s' )
+		);
+	}
+
+	/** Earliest retry time (UTC, MySQL format) of pending jobs that are not due yet. */
+	public function nextRetryAt(): ?string {
+		global $wpdb;
+		$table = $this->database->table( 'jobs' );
+		$next  = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT MIN(available_at) FROM {$table} WHERE status = 'pending' AND available_at > %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				current_time( 'mysql', true )
+			)
+		);
+		return is_string( $next ) ? $next : null;
+	}
+
+	/**
+	 * Most recent jobs that need attention: retrying, failed, or skipped with a reason.
+	 *
+	 * @return list<array{url:string,status:string,attempts:int,available_at:string,last_error:string}>
+	 */
+	public function problems( int $limit = 20 ): array {
+		global $wpdb;
+		$table = $this->database->table( 'jobs' );
+		$rows  = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT url, status, attempts, available_at, last_error FROM {$table} WHERE last_error IS NOT NULL AND (status IN ('failed','skipped') OR (status = 'pending' AND attempts > 0)) ORDER BY updated_at DESC, id DESC LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				max( 1, min( 100, $limit ) )
+			)
+		);
+		$out   = array();
+		foreach ( $rows as $row ) {
+			$out[] = array(
+				'url'          => (string) $row->url,
+				'status'       => (string) $row->status,
+				'attempts'     => (int) $row->attempts,
+				'available_at' => (string) $row->available_at,
+				'last_error'   => (string) $row->last_error,
+			);
+		}
+		return $out;
+	}
+
 	public function recoverStale(): int {
 		global $wpdb;
 		$table  = $this->database->table( 'jobs' );
@@ -181,6 +244,7 @@ final class Queue {
 			'pending'   => 0,
 			'running'   => 0,
 			'failed'    => 0,
+			'skipped'   => 0,
 			'succeeded' => 0,
 		);
 		foreach ( $rows as $row ) {

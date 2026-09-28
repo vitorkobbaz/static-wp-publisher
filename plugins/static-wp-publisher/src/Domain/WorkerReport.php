@@ -15,5 +15,6 @@ final readonly class WorkerReport {
 		public int $succeeded,
 		public int $failed,
 		public ?string $lastError = null,
+		public int $skipped = 0,
 	) {}
 }

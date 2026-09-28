@@ -11,7 +11,7 @@
 1. WordPress content or configuration changes enqueue affected URLs.
 2. A worker claims jobs with per-URL leases. Each cron, admin, or REST pass processes up to 50 URLs (`swpp_worker_batch_size`) and stops claiming new jobs after 20 seconds (`swpp_worker_time_budget`), capped at half of PHP `max_execution_time`. WP-CLI `wp swpp process --limit=<n>` has no time budget.
 3. The renderer fetches the anonymous public response with a signed internal-render header.
-4. Eligibility rejects private, personalized, erroneous, or unsafe responses.
+4. Eligibility rejects private, personalized, erroneous, or unsafe responses. Deterministic refusals (password-protected, personalized, cookie-setting, non-HTML, or non-200/non-transient responses) remove any existing static copy so WordPress serves the page dynamically, and close the job as `skipped` without retries. Transient failures (network errors, 408/425/429, 5xx, empty bodies) retry with exponential backoff. The full inventory excludes password-protected posts.
 5. Storage writes to a temporary file, hashes it, and atomically replaces the live artifact.
 6. The previous artifact is retained according to the configured policy.
 

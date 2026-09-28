@@ -86,6 +86,6 @@ final class Commands {
 		if ( null !== $report->lastError ) {
 			\WP_CLI::warning( 'Last error: ' . $report->lastError );
 		}
-		\WP_CLI::success( sprintf( '%d job(s) processed: %d published, %d failed.', $report->processed, $report->succeeded, $report->failed ) );
+		\WP_CLI::success( sprintf( '%d job(s) processed: %d published, %d failed, %d skipped.', $report->processed, $report->succeeded, $report->failed, $report->skipped ) );
 	}
 }

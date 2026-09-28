@@ -68,6 +68,7 @@ final class Inventory {
 			array(
 				'post_type'              => $post_types,
 				'post_status'            => 'publish',
+				'has_password'           => false,
 				'posts_per_page'         => $limit,
 				'paged'                  => $page,
 				'fields'                 => 'ids',

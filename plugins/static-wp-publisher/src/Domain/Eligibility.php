@@ -11,6 +11,9 @@ namespace SWPP\Core\Domain;
 
 final class Eligibility {
 	/**
+	 * Transient failures stay retryable; deterministic refusals are returned through
+	 * PublishResult::refused() so the queue stops retrying and stale copies are removed.
+	 *
 	 * @param array<string,string|string[]> $headers Response headers.
 	 */
 	public static function check( int $status, array $headers, string $body ): PublishResult {
@@ -18,26 +21,29 @@ final class Eligibility {
 			return new PublishResult( true, 'Redirect is eligible for the redirect manifest.' );
 		}
 		if ( 200 !== $status ) {
-			return new PublishResult( false, sprintf( 'HTTP status %d is not publishable.', $status ) );
+			$message = sprintf( 'HTTP status %d is not publishable.', $status );
+			return self::isTransientStatus( $status ) ? new PublishResult( false, $message ) : PublishResult::refused( $message );
 		}
 
 		$content_type_header = $headers['content-type'] ?? '';
 		$content_type        = strtolower( is_array( $content_type_header ) ? implode( ', ', $content_type_header ) : $content_type_header );
 		if ( ! str_contains( $content_type, 'text/html' ) ) {
-			return new PublishResult( false, 'Response is not HTML.' );
+			return PublishResult::refused( 'Response is not HTML.' );
 		}
 		if ( isset( $headers['set-cookie'] ) ) {
-			return new PublishResult( false, 'Response attempted to set a cookie.' );
+			return PublishResult::refused( 'Response attempted to set a cookie.' );
 		}
 
+		if ( false !== stripos( $body, 'name="post_password"' ) ) {
+			return PublishResult::refused( 'Page is password protected.' );
+		}
 		$unsafe_markers = array(
 			'id="wpadminbar"',
-			'name="post_password"',
 			'wp-login.php?action=logout',
 		);
 		foreach ( $unsafe_markers as $marker ) {
 			if ( false !== stripos( $body, $marker ) ) {
-				return new PublishResult( false, 'Response appears personalized or protected.' );
+				return PublishResult::refused( 'Response appears personalized or protected.' );
 			}
 		}
 
@@ -46,5 +52,9 @@ final class Eligibility {
 		}
 
 		return new PublishResult( true, 'Response is eligible.' );
+	}
+
+	private static function isTransientStatus( int $status ): bool {
+		return 0 === $status || 408 === $status || 425 === $status || 429 === $status || $status >= 500;
 	}
 }

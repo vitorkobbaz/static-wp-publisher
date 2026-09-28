@@ -170,6 +170,28 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			$this->json( array( 'pages' => $pages ) );
 		}
 
+		/** Adds a password to a page through the normal update path. */
+		public function protect( array $args ): void {
+			$post_id = (int) ( $args[0] ?? 0 );
+			$result  = wp_update_post(
+				array(
+					'ID'            => $post_id,
+					'post_password' => (string) ( $args[1] ?? 'swpp-e2e-secret' ),
+				),
+				true
+			);
+			if ( is_wp_error( $result ) ) {
+				\WP_CLI::error( $result->get_error_message() );
+			}
+			$this->json( array( 'protected' => $post_id ) );
+		}
+
+		/** Starts a full inventory scan without rendering anything. */
+		public function inventory(): void {
+			$queue = new \SWPP\Core\Application\Queue( new \SWPP\Core\Infrastructure\Database() );
+			$this->json( array( 'queued' => ( new \SWPP\Core\Application\Inventory( $queue ) )->enqueueAll() ) );
+		}
+
 		/** Runs the compatibility worker once. */
 		public function process(): void {
 			do_action( 'swpp_process_queue' );

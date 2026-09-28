@@ -108,11 +108,13 @@ final class RestController {
 		$report = ( new Worker( $this->queue, $this->publisher ) )->run( Worker::requestBudget() );
 		return new WP_REST_Response(
 			array(
-				'processed'  => $report->processed,
-				'succeeded'  => $report->succeeded,
-				'failed'     => $report->failed,
-				'last_error' => $report->lastError,
-				'pending'    => $this->queue->counts()['pending'],
+				'processed'     => $report->processed,
+				'succeeded'     => $report->succeeded,
+				'failed'        => $report->failed,
+				'skipped'       => $report->skipped,
+				'last_error'    => $report->lastError,
+				'pending'       => $this->queue->counts()['pending'],
+				'next_retry_at' => $this->queue->nextRetryAt(),
 			)
 		);
 	}

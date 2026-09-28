@@ -63,7 +63,7 @@ final class AdminPage {
 			<table class="widefat striped" style="max-width:900px">
 				<tbody>
 					<tr><th><?php esc_html_e( 'Local static serving', 'static-wp-publisher' ); ?></th><td><?php echo $enabled ? esc_html__( 'Published', 'static-wp-publisher' ) : esc_html__( 'Preview only', 'static-wp-publisher' ); ?></td></tr>
-					<tr><th><?php esc_html_e( 'Queue', 'static-wp-publisher' ); ?></th><td><?php echo esc_html( sprintf( 'Pending: %d | Running: %d | Failed: %d | Completed: %d', $counts['pending'], $counts['running'], $counts['failed'], $counts['succeeded'] ) ); ?></td></tr>
+					<tr><th><?php esc_html_e( 'Queue', 'static-wp-publisher' ); ?></th><td><?php echo esc_html( sprintf( 'Pending: %d | Running: %d | Failed: %d | Skipped: %d | Completed: %d', $counts['pending'], $counts['running'], $counts['failed'], $counts['skipped'], $counts['succeeded'] ) ); ?></td></tr>
 					<tr><th><?php esc_html_e( 'Next compatibility worker', 'static-wp-publisher' ); ?></th><td><?php echo is_string( $next_at ) ? esc_html( $next_at ) : esc_html__( 'Not scheduled — configure WP-Cron or a real scheduler.', 'static-wp-publisher' ); ?></td></tr>
 					<tr><th><?php esc_html_e( 'Published directory', 'static-wp-publisher' ); ?></th><td><code><?php echo esc_html( $this->storage->publishedRoot() ); ?></code></td></tr>
 				</tbody>
@@ -74,6 +74,8 @@ final class AdminPage {
 				<?php $this->actionButton( 'swpp_process_now', __( 'Process next batch', 'static-wp-publisher' ) ); ?>
 				<?php $this->actionButton( 'swpp_toggle_serving', $enabled ? __( 'Return to dynamic WordPress', 'static-wp-publisher' ) : __( 'Publish generated HTML', 'static-wp-publisher' ), $enabled ? 'button' : 'button button-secondary' ); ?>
 			</p>
+
+			<?php $this->renderProblems(); ?>
 
 			<h2><?php esc_html_e( 'Important limitations', 'static-wp-publisher' ); ?></h2>
 			<ul class="ul-disc">
@@ -98,16 +100,28 @@ final class AdminPage {
 		$this->authorize( 'swpp_process_now' );
 		$report = ( new Worker( $this->queue, $this->publisher ) )->run( Worker::requestBudget() );
 		if ( 0 === $report->processed ) {
+			$retry_at = $this->queue->nextRetryAt();
+			if ( null !== $retry_at ) {
+				$this->redirect(
+					sprintf(
+						/* translators: 1: number of jobs waiting, 2: local date and time of the next retry. */
+						__( 'No job is due now. %1$d job(s) are waiting to retry after an error; next attempt at %2$s. See "Needs attention" below.', 'static-wp-publisher' ),
+						$this->queue->counts()['pending'],
+						$this->localTime( $retry_at )
+					)
+				);
+			}
 			$this->redirect( __( 'The queue is empty.', 'static-wp-publisher' ) );
 		}
 
 		$pending = $this->queue->counts()['pending'];
 		$notice  = sprintf(
-			/* translators: 1: processed URLs, 2: published URLs, 3: failed URLs, 4: URLs still pending. */
-			__( '%1$d URL(s) processed: %2$d published, %3$d failed. %4$d still pending.', 'static-wp-publisher' ),
+			/* translators: 1: processed URLs, 2: published URLs, 3: failed URLs, 4: skipped URLs, 5: URLs still pending. */
+			__( '%1$d URL(s) processed: %2$d published, %3$d failed, %4$d skipped (not publishable). %5$d still pending.', 'static-wp-publisher' ),
 			$report->processed,
 			$report->succeeded,
 			$report->failed,
+			$report->skipped,
 			$pending
 		);
 		if ( null !== $report->lastError ) {
@@ -123,6 +137,48 @@ final class AdminPage {
 		$settings['enabled'] = empty( $settings['enabled'] );
 		update_option( 'swpp_settings', $settings, false );
 		$this->redirect( $settings['enabled'] ? __( 'Static serving published.', 'static-wp-publisher' ) : __( 'Dynamic WordPress restored.', 'static-wp-publisher' ) );
+	}
+
+	private function renderProblems(): void {
+		$problems = $this->queue->problems();
+		if ( array() === $problems ) {
+			return;
+		}
+		$labels = array(
+			'pending' => __( 'Retrying', 'static-wp-publisher' ),
+			'failed'  => __( 'Failed', 'static-wp-publisher' ),
+			'skipped' => __( 'Not publishable (served dynamically)', 'static-wp-publisher' ),
+		);
+		?>
+		<h2><?php esc_html_e( 'Needs attention', 'static-wp-publisher' ); ?></h2>
+		<table class="widefat striped" style="max-width:1100px">
+			<thead>
+				<tr>
+					<th><?php esc_html_e( 'URL', 'static-wp-publisher' ); ?></th>
+					<th><?php esc_html_e( 'Status', 'static-wp-publisher' ); ?></th>
+					<th><?php esc_html_e( 'Attempts', 'static-wp-publisher' ); ?></th>
+					<th><?php esc_html_e( 'Next attempt', 'static-wp-publisher' ); ?></th>
+					<th><?php esc_html_e( 'Reason', 'static-wp-publisher' ); ?></th>
+				</tr>
+			</thead>
+			<tbody>
+				<?php foreach ( $problems as $problem ) : ?>
+					<tr>
+						<td><a href="<?php echo esc_url( $problem['url'] ); ?>"><?php echo esc_html( $problem['url'] ); ?></a></td>
+						<td><?php echo esc_html( $labels[ $problem['status'] ] ?? $problem['status'] ); ?></td>
+						<td><?php echo esc_html( (string) $problem['attempts'] ); ?></td>
+						<td><?php echo 'pending' === $problem['status'] ? esc_html( $this->localTime( $problem['available_at'] ) ) : '&mdash;'; ?></td>
+						<td><?php echo esc_html( $problem['last_error'] ); ?></td>
+					</tr>
+				<?php endforeach; ?>
+			</tbody>
+		</table>
+		<?php
+	}
+
+	private function localTime( string $utc_mysql ): string {
+		$timestamp = strtotime( $utc_mysql . ' UTC' );
+		return false === $timestamp ? $utc_mysql : (string) wp_date( 'Y-m-d H:i:s', $timestamp );
 	}
 
 	private function actionButton( string $action, string $label, string $css_class = 'button' ): void {
