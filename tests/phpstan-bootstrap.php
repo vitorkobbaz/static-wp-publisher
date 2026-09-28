@@ -14,6 +14,7 @@ if ( ! class_exists( 'WP_CLI' ) ) {
 		public static function add_command( string $name, object $command ): void {}
 		public static function line( string $message ): void {}
 		public static function success( string $message ): void {}
+		public static function warning( string $message ): void {}
 		public static function error( string $message ): void {}
 	}
 }

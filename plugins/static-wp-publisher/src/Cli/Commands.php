@@ -12,6 +12,8 @@ namespace SWPP\Core\Cli;
 use SWPP\Core\Application\Inventory;
 use SWPP\Core\Application\Publisher;
 use SWPP\Core\Application\Queue;
+use SWPP\Core\Application\Worker;
+use SWPP\Core\Domain\WorkerBudget;
 use SWPP\Core\Infrastructure\Storage;
 
 final class Commands {
@@ -79,21 +81,11 @@ final class Commands {
 	 */
 	public function process( array $args, array $assoc_args ): void {
 		unset( $args );
-		$limit = max( 1, min( 1000, (int) ( $assoc_args['limit'] ?? 10 ) ) );
-		$done  = 0;
-		while ( $done < $limit ) {
-			$job = $this->queue->claim();
-			if ( null === $job ) {
-				break;
-			}
-			$result = $this->publisher->publish( $job->url );
-			if ( $result->success ) {
-				$this->queue->complete( $job );
-			} else {
-				$this->queue->fail( $job, $result->message );
-			}
-			++$done;
+		$budget = WorkerBudget::forCli( (int) ( $assoc_args['limit'] ?? 100 ) );
+		$report = ( new Worker( $this->queue, $this->publisher ) )->run( $budget );
+		if ( null !== $report->lastError ) {
+			\WP_CLI::warning( 'Last error: ' . $report->lastError );
 		}
-		\WP_CLI::success( sprintf( '%d job(s) processed.', $done ) );
+		\WP_CLI::success( sprintf( '%d job(s) processed: %d published, %d failed, %d skipped.', $report->processed, $report->succeeded, $report->failed, $report->skipped ) );
 	}
 }
