@@ -21,6 +21,8 @@ composer check
 
 The E2E test instance uses host port 80 so WordPress can perform a real self-request from its web container. Ensure that port is available before `npm run test:e2e`; the current smoke suite does not support overriding `WP_ENV_TESTS_PORT`.
 
+E2E fixtures live in the test-only `tests/e2e/fixtures/swpp-e2e-support` plugin, loaded only in the wp-env `tests` environment. Its `wp swpp-e2e seed-v1` command rebuilds the original schema v1 tables with legacy data so `tests/e2e/specs/schema-upgrade.spec.ts` can exercise the real in-place upgrade on the next web request. When the schema changes again, add the previous DDL as a new seed instead of editing the v1 one.
+
 WPML and Freemius jobs are skipped unless their protected CI secrets are available.
 
 ## Real-site fixtures

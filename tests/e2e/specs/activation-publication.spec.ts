@@ -1,8 +1,9 @@
-import { expect, test, type APIRequestContext } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import AdmZip from "adm-zip";
 import { createHash } from "node:crypto";
 import { stat } from "node:fs/promises";
 import { parseFixtureJson, runWp } from "../support/process";
+import { processQueue } from "../support/queue";
 
 type ActivationState = {
     core_active: boolean;
@@ -21,16 +22,6 @@ type ArtifactState = {
     content: string;
     row: null | Record<string, unknown>;
 };
-
-async function processQueue(request: APIRequestContext): Promise<void> {
-    const response = await request.post(
-        "/index.php?rest_route=/swpp-e2e/v1/process",
-        {
-            headers: { "X-SWPP-E2E": "static-wp-publisher-e2e" },
-        },
-    );
-    expect(response.ok(), await response.text()).toBe(true);
-}
 
 test.describe
     .serial("Static WP Publisher on a real WordPress installation", () => {
