@@ -4,13 +4,21 @@ This document separates the implemented Core + Individual Export MVP from work s
 
 ## Release blockers
 
-- Run real WordPress integration and Playwright flows through the Docker/wp-env environment, including activation, upgrades, scheduled workers, anonymous serving, deletion, and ZIP extraction.
+- Expand the real WordPress Playwright suite (wp-env). Covered today: activation and schema, publication, refresh, anonymous serving, bypass cookies, authenticated ZIP generation/download/manifest checks, and the in-place schema v1 → v2 upgrade (legacy jobs, builds, artifacts, and settings preserved; duplicate active jobs retired; expired v1 lease recovered; idempotent re-run). Still pending, in order:
+  1. WP-Cron execution, retries with backoff, expired leases, and concurrent workers.
+  2. Unpublishing and deletion, confirming static artifacts are removed.
+  3. Exporting, downloading, and extracting the ZIP into a temporary directory.
+  4. Serving the extracted package from an independent HTTP server.
+  5. Playwright crawl of the extracted package: HTTP status, internal navigation, images/`srcset`/CSS/fonts/backgrounds, `noindex` in relocatable mode, manifest checksums, absence of PHP/`wp-config`/`.env`/traversal/sensitive files, and zero requests to the original WordPress.
+  6. The same flow for a domain/subdirectory-targeted publishable export.
 - Add reproducible performance and scale benchmarks, including the 100,000-URL inventory target and static TTFB below 200 ms under documented conditions.
 - Complete Freemius production onboarding: product identifiers, signed SDK bootstrap, seven-day trial, 72/24-hour reminders, 30-day entitlement cache, update delivery, renewal, and expiration scenarios.
 - Complete legal review for commercial terms, privacy, trial/no-refund language, trademark use, and the dedicated security contact.
 - Add release packaging, signing/checksums, translation catalogs, and the WordPress.org submission pipeline for Core.
 
 ## Core follow-up
+
+- Enforce the free-tier limit of 10 published pages. The monetization model defines it, but the current `Inventory`/`Eligibility` code does not apply any page cap yet.
 
 - Add reviewed Apache, Nginx, and IIS direct-file profiles plus configuration validation. The implemented PHP fallback is safe but still boots WordPress.
 - Expose retained versions through an administrator rollback UI, REST operation, and WP-CLI command. Atomic version snapshots already exist as the underlying primitive.
