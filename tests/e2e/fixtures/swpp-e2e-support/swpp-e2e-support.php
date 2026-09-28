@@ -58,6 +58,10 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 
 			$this->deleteUpgradePages();
 			$this->deleteBatchPages();
+			$template = get_page_by_path( 'swpp-e2e-header', OBJECT, 'elementor_library' );
+			if ( $template instanceof \WP_Post ) {
+				wp_delete_post( $template->ID, true );
+			}
 			deactivate_plugins( array( self::EXPORT_PLUGIN, self::CORE_PLUGIN ), false );
 			$this->dropTables();
 			foreach ( array( 'swpp_settings', 'swpp_redirects', 'swpp_schema_version', 'swpp_full_rebuild_recommended', 'swpp_inventory_scan', 'swpp_e2e_migrated_by' ) as $option ) {

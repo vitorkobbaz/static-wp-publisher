@@ -374,6 +374,12 @@
 	font-variant-numeric: tabular-nums;
 }
 
+/* Row actions stay visible: reachable by keyboard and touch. */
+.swpp-admin .wp-list-table .row-actions {
+	position: static;
+	left: auto;
+}
+
 .swpp-admin .swpp-url {
 	display: block;
 	margin-top: 2px;
