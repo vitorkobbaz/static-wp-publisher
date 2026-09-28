@@ -63,6 +63,23 @@ final class PageStatusTest extends TestCase {
 		self::assertFalse( PageStatus::resolve( null, null, false )->isServedStatically() );
 	}
 
+	public function test_only_up_to_date_copies_belong_to_the_static_group(): void {
+		self::assertSame( PageStatus::GROUP_STATIC, PageStatus::resolve( self::job( 'succeeded' ), self::ARTIFACT, false )->group() );
+		self::assertSame( PageStatus::GROUP_PENDING, PageStatus::resolve( self::job( 'pending' ), self::ARTIFACT, false )->group() );
+		self::assertSame( PageStatus::GROUP_PENDING, PageStatus::resolve( self::job( 'pending', 2, 'x' ), null, false )->group() );
+		self::assertSame( PageStatus::GROUP_ATTENTION, PageStatus::resolve( self::job( 'failed', 3, 'x', '2026-09-28 13:00:00' ), self::ARTIFACT, false )->group() );
+		self::assertSame( PageStatus::GROUP_ATTENTION, PageStatus::resolve( null, self::ARTIFACT, true )->group() );
+		self::assertSame( PageStatus::GROUP_DYNAMIC, PageStatus::resolve( null, null, true )->group() );
+		self::assertSame( PageStatus::GROUP_MISSING, PageStatus::resolve( null, null, false )->group() );
+	}
+
+	public function test_wordpress_only_pages_are_not_publishable(): void {
+		self::assertFalse( PageStatus::resolve( null, null, true )->isPublishable() );
+		self::assertFalse( PageStatus::resolve( null, self::ARTIFACT, true )->isPublishable() );
+		self::assertTrue( PageStatus::resolve( null, null, false )->isPublishable() );
+		self::assertTrue( PageStatus::resolve( self::job( 'failed', 3, 'x' ), null, false )->isPublishable() );
+	}
+
 	public function test_unpublishable_pages_are_dynamic_with_reason(): void {
 		$skipped   = PageStatus::resolve( self::job( 'skipped', 0, 'Page is password protected.' ), null, true );
 		$protected = PageStatus::resolve( null, null, true );

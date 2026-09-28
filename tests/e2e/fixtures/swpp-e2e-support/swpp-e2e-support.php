@@ -24,6 +24,24 @@ $swpp_e2e_record_migration = static function (): void {
 add_action( 'add_option_swpp_schema_version', $swpp_e2e_record_migration );
 add_action( 'update_option_swpp_schema_version', $swpp_e2e_record_migration );
 
+/*
+ * Page builders register their templates as public post types. Mirror Elementor's
+ * library with a pretty permalink so exclusion is tested by type, not by query string.
+ */
+add_action(
+	'init',
+	static function (): void {
+		register_post_type(
+			'elementor_library',
+			array(
+				'public'  => true,
+				'label'   => 'My Templates',
+				'rewrite' => array( 'slug' => 'swpp-e2e-template' ),
+			)
+		);
+	}
+);
+
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
 	final class SWPP_E2E_Command {
 		private const CORE_PLUGIN   = 'static-wp-publisher/static-wp-publisher.php';
@@ -168,6 +186,37 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 				);
 			}
 			$this->json( array( 'pages' => $pages ) );
+		}
+
+		/**
+		 * Creates a published page-builder template (not a visitor-facing page).
+		 *
+		 * @subcommand create-template
+		 */
+		public function create_template(): void {
+			$existing = get_page_by_path( 'swpp-e2e-header', OBJECT, 'elementor_library' );
+			if ( $existing instanceof \WP_Post ) {
+				wp_delete_post( $existing->ID, true );
+			}
+			$post_id = wp_insert_post(
+				array(
+					'post_type'    => 'elementor_library',
+					'post_status'  => 'publish',
+					'post_title'   => 'SWPP E2E Header Template',
+					'post_name'    => 'swpp-e2e-header',
+					'post_content' => '<header>Template</header>',
+				),
+				true
+			);
+			if ( is_wp_error( $post_id ) ) {
+				\WP_CLI::error( $post_id->get_error_message() );
+			}
+			$this->json(
+				array(
+					'id'  => (int) $post_id,
+					'url' => (string) get_permalink( (int) $post_id ),
+				)
+			);
 		}
 
 		/** Adds a password to a page through the normal update path. */

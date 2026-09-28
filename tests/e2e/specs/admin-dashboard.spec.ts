@@ -3,6 +3,8 @@ import { parseFixtureJson, runWp } from "../support/process";
 import { loginAsAdmin } from "../support/admin";
 
 type BatchFixture = { pages: { id: number; url: string }[] };
+type TemplateFixture = { id: number; url: string };
+type ArtifactRows = { artifacts: { url: string }[] };
 
 const DASHBOARD = "/wp-admin/admin.php?page=static-wp-publisher";
 
@@ -10,12 +12,16 @@ function row(page: Page, url: string) {
     return page.locator(`tr[data-swpp-url="${url}"]`);
 }
 
+function status(page: Page, url: string) {
+    return row(page, url).locator("[data-swpp-status]");
+}
+
 test.describe
     .serial("Administration dashboard", () => {
-    test("generates every page with progress, shows per-page status and verifies delivery", async ({
+    test("generates pages, filters by state, and runs row and bulk actions in place", async ({
         page,
     }, testInfo) => {
-        testInfo.setTimeout(240_000);
+        testInfo.setTimeout(300_000);
         parseFixtureJson(runWp(["swpp-e2e", "reset"]));
         const batch = parseFixtureJson<BatchFixture>(
             runWp(["swpp-e2e", "create-batch", "3"]),
@@ -24,67 +30,133 @@ test.describe
         parseFixtureJson(
             runWp(["swpp-e2e", "protect", String(secret.id), "swpp-secret"]),
         );
+        const template = parseFixtureJson<TemplateFixture>(
+            runWp(["swpp-e2e", "create-template"]),
+        );
 
         await loginAsAdmin(page);
         await page.goto(DASHBOARD);
-        await expect(page.locator(".swpp-banner__title")).toHaveText(
+        await expect(page.locator(".swpp-banner__title")).toContainText(
             "Static serving is OFF",
         );
-        await expect(
-            row(page, first.url).locator("[data-swpp-status]"),
-        ).toHaveAttribute("data-swpp-status", /^(queued|missing)$/);
+        await expect(status(page, first.url)).toHaveAttribute(
+            "data-swpp-group",
+            /^(pending|missing)$/,
+        );
+        // Page-builder templates are not pages: never listed.
+        await expect(row(page, template.url)).toHaveCount(0);
 
-        await page
-            .getByRole("button", { name: "Generate all pages now" })
-            .click();
-        await expect(page.locator("[data-swpp-progress]")).toBeVisible();
-        const notice = page.locator("[data-swpp-notice]");
-        await expect(notice).toContainText("Generation finished", {
-            timeout: 180_000,
+        await test.step("generate everything with visible progress", async () => {
+            await page
+                .getByRole("button", { name: "Generate all pages now" })
+                .click();
+            const notice = page.locator("[data-swpp-notice]");
+            await expect(notice).toContainText("Finished", {
+                timeout: 240_000,
+            });
+            await expect(notice).toContainText("0 errors");
         });
-        await expect(notice).toContainText("0 errors");
 
-        for (const published of [first, second]) {
+        await test.step("states, colours and counters", async () => {
+            for (const published of [first, second]) {
+                await expect(status(page, published.url)).toHaveAttribute(
+                    "data-swpp-status",
+                    "static",
+                );
+                await expect(status(page, published.url)).toHaveClass(
+                    /swpp-badge--good/,
+                );
+            }
+            await expect(status(page, secret.url)).toHaveAttribute(
+                "data-swpp-group",
+                "dynamic",
+            );
+            await expect(row(page, secret.url)).toContainText(
+                "Page is password protected.",
+            );
             await expect(
-                row(page, published.url).locator("[data-swpp-status]"),
-            ).toHaveAttribute("data-swpp-status", "static");
-        }
-        await expect(
-            row(page, secret.url).locator("[data-swpp-status]"),
-        ).toHaveAttribute("data-swpp-status", "dynamic");
-        await expect(row(page, secret.url)).toContainText(
-            "Page is password protected.",
-        );
+                page.locator('[data-swpp-card="attention"] .swpp-card__value'),
+            ).toHaveText("0");
 
-        await page
-            .getByRole("button", { name: "Turn static serving on" })
-            .click();
-        await expect(page.locator(".swpp-banner__title")).toHaveText(
-            "Static serving is ON",
-        );
+            const artifacts = parseFixtureJson<ArtifactRows>(
+                runWp(["swpp-e2e", "migration-state"]),
+            ).artifacts.map((artifact) => artifact.url);
+            expect(artifacts).toContain(first.url);
+            expect(artifacts).not.toContain(template.url);
+        });
 
-        await row(page, first.url).getByRole("button", { name: "Check" }).click();
-        await expect(notice).toContainText("Confirmed:");
-        await expect(notice).toContainText("delivered from the static copy");
+        await test.step("tabs separate pages served by WordPress", async () => {
+            await page.locator('[data-swpp-view="dynamic"]').click();
+            await expect(row(page, secret.url)).toBeVisible();
+            await expect(row(page, first.url)).toHaveCount(0);
 
-        await row(page, secret.url)
-            .getByRole("button", { name: "Check" })
-            .click();
-        await expect(notice).toContainText("delivered by WordPress");
+            await page.locator('[data-swpp-view="static"]').click();
+            await expect(row(page, first.url)).toBeVisible();
+            await expect(row(page, secret.url)).toHaveCount(0);
 
-        await row(page, second.url)
-            .getByRole("button", { name: "Regenerate" })
-            .click();
-        await expect(notice).toContainText("Static copy of");
-        await expect(
-            row(page, second.url).locator("[data-swpp-status]"),
-        ).toHaveAttribute("data-swpp-status", "static");
+            await page.locator('[data-swpp-view="attention"]').click();
+            await expect(page.locator(".wp-list-table")).toContainText(
+                "Nothing needs attention.",
+            );
+        });
 
-        await page
-            .getByRole("button", { name: "Turn static serving off" })
-            .click();
-        await expect(page.locator(".swpp-banner__title")).toHaveText(
-            "Static serving is OFF",
-        );
+        await test.step("search narrows the list", async () => {
+            await page.goto(DASHBOARD);
+            await page.locator("#swpp-search-search-input").fill("batch 2");
+            await page.locator("#search-submit").click();
+            await expect(row(page, second.url)).toBeVisible();
+            await expect(row(page, first.url)).toHaveCount(0);
+        });
+
+        await test.step("row and bulk actions run without reloading", async () => {
+            await page.goto(DASHBOARD);
+            await page
+                .getByRole("button", { name: "Turn static serving on" })
+                .click();
+            await expect(page.locator(".swpp-banner__title")).toContainText(
+                "Static serving is ON",
+            );
+
+            await row(page, first.url)
+                .locator('[data-swpp-row-action="verify"]')
+                .click();
+            await expect(
+                row(page, first.url).locator("[data-swpp-result]"),
+            ).toContainText("Confirmed: delivered from the static copy");
+
+            await row(page, first.url).locator('input[name="post_ids[]"]').check();
+            await row(page, secret.url).locator('input[name="post_ids[]"]').check();
+            await page
+                .locator('select[name="action"]')
+                .selectOption("swpp-verify");
+            await page.locator("#doaction").click();
+            await expect(
+                page.locator("[data-swpp-progress-text]"),
+            ).toContainText("Done: 1 OK, 1 with warnings, 0 failed", {
+                timeout: 60_000,
+            });
+            await expect(
+                row(page, secret.url).locator("[data-swpp-result]"),
+            ).toContainText("Delivered by WordPress");
+
+            await row(page, second.url)
+                .locator('[data-swpp-row-action="regenerate"]')
+                .click();
+            await expect(
+                row(page, second.url).locator("[data-swpp-result]"),
+            ).toContainText("Static copy updated.");
+            await expect(status(page, second.url)).toHaveAttribute(
+                "data-swpp-status",
+                "static",
+            );
+
+            await page.goto(DASHBOARD);
+            await page
+                .getByRole("button", { name: "Turn static serving off" })
+                .click();
+            await expect(page.locator(".swpp-banner__title")).toContainText(
+                "Static serving is OFF",
+            );
+        });
     });
 });

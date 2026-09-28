@@ -9,152 +9,219 @@ declare(strict_types=1);
 
 namespace SWPP\Core\Application;
 
+use SWPP\Core\Domain\ContentScope;
 use SWPP\Core\Domain\PageStatus;
 use SWPP\Core\Infrastructure\Database;
 use WP_Post;
-use WP_Query;
 
+/**
+ * @phpstan-type Row array{post_id:int,title:string,type:string,url:string,modified:string,status:PageStatus,published_at:string,bytes:int}
+ * @phpstan-type Entry array{post_id:int,title:string,type:string,url:string,modified:string,protected:bool}
+ */
 final class StatusReport {
+	/** Items resolved per dashboard load; adjustable with `swpp_dashboard_item_limit`. */
+	public const DEFAULT_LIMIT = 2000;
+
+	public const VIEWS = array( 'all', PageStatus::GROUP_STATIC, PageStatus::GROUP_PENDING, PageStatus::GROUP_ATTENTION, PageStatus::GROUP_DYNAMIC, PageStatus::GROUP_MISSING );
+
 	public function __construct(
 		private readonly Database $database,
 		private readonly Queue $queue,
 	) {}
 
 	/**
-	 * Site-wide numbers. Content counts come from cheap aggregate queries, so this stays
-	 * fast on large sites.
+	 * Resolves every visitor-facing page, then filters, searches and paginates.
 	 *
-	 * @return array{content:int,protected:int,static:int,queued:int,retrying:int,running:int,failed:int,skipped:int}
+	 * @return array{rows:list<Row>,filtered:int,counts:array<string,int>,covered:int,publishable:int,truncated:bool,limit:int,urls:list<string>}
 	 */
-	public function summary(): array {
-		global $wpdb;
-		$types        = $this->postTypes();
-		$placeholders = implode( ',', array_fill( 0, count( $types ), '%s' ) );
-		$content      = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_status = 'publish' AND post_password = '' AND post_type IN ({$placeholders})", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-				...$types
-			)
-		);
-		$protected    = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_status = 'publish' AND post_password <> '' AND post_type IN ({$placeholders})", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-				...$types
-			)
-		);
-		$artifacts    = $this->database->table( 'artifacts' );
-		$static       = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$artifacts}" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	public function listing( string $view, string $search, int $paged, int $per_page ): array {
+		$limit   = max( 50, (int) apply_filters( 'swpp_dashboard_item_limit', self::DEFAULT_LIMIT ) );
+		$entries = $this->entries( $limit + 1 );
+		$trunc   = count( $entries ) > $limit;
+		$rows    = $this->resolve( array_slice( $entries, 0, $limit ) );
 
-		// The home page has its own row unless a static front page already represents it.
-		if ( ! $this->frontPageIsPost() ) {
-			++$content;
+		$counts      = array_fill_keys( self::VIEWS, 0 );
+		$covered     = 0;
+		$publishable = 0;
+		foreach ( $rows as $row ) {
+			++$counts['all'];
+			++$counts[ $row['status']->group() ];
+			if ( $row['status']->isPublishable() ) {
+				++$publishable;
+				if ( $row['status']->isServedStatically() ) {
+					++$covered;
+				}
+			}
 		}
 
-		return array_merge(
-			array(
-				'content'   => $content,
-				'protected' => $protected,
-				'static'    => $static,
-			),
-			$this->queue->latestCounts()
+		$urls   = array_map( static fn( array $row ): string => $row['url'], $rows );
+		$view   = in_array( $view, self::VIEWS, true ) ? $view : 'all';
+		$needle = function_exists( 'mb_strtolower' ) ? mb_strtolower( trim( $search ) ) : strtolower( trim( $search ) );
+		$rows   = array_values(
+			array_filter(
+				$rows,
+				static function ( array $row ) use ( $view, $needle ): bool {
+					if ( 'all' !== $view && $row['status']->group() !== $view ) {
+						return false;
+					}
+					if ( '' === $needle ) {
+						return true;
+					}
+					$haystack = $row['title'] . ' ' . $row['url'];
+					$haystack = function_exists( 'mb_strtolower' ) ? mb_strtolower( $haystack ) : strtolower( $haystack );
+					return str_contains( $haystack, $needle );
+				}
+			)
+		);
+
+		$per_page = max( 10, min( 200, $per_page ) );
+		return array(
+			'rows'        => array_slice( $rows, ( max( 1, $paged ) - 1 ) * $per_page, $per_page ),
+			'filtered'    => count( $rows ),
+			'counts'      => $counts,
+			'covered'     => $covered,
+			'publishable' => $publishable,
+			'truncated'   => $trunc,
+			'limit'       => $limit,
+			'urls'        => $urls,
 		);
 	}
 
 	/**
-	 * One page of public content with its publication state, most recently changed first.
+	 * Current row for one content item (0 = home page), or null if it is not a public page.
 	 *
-	 * @return array{rows:list<array{post_id:int,title:string,type:string,url:string,status:PageStatus,published_at:string,bytes:int}>,pages:int}
+	 * @return Row|null
 	 */
-	public function rows( int $paged, int $per_page = 50 ): array {
-		$paged    = max( 1, $paged );
-		$per_page = max( 10, min( 200, $per_page ) );
-		$query    = new WP_Query(
-			array(
-				'post_type'              => $this->postTypes(),
-				'post_status'            => 'publish',
-				'posts_per_page'         => $per_page,
-				'paged'                  => $paged,
-				'orderby'                => 'modified',
-				'order'                  => 'DESC',
-				'update_post_meta_cache' => false,
-				'update_post_term_cache' => false,
+	public function rowFor( int $post_id ): ?array {
+		if ( 0 === $post_id ) {
+			$entry = $this->homeEntry();
+		} else {
+			$post  = get_post( $post_id );
+			$entry = $post instanceof WP_Post && 'publish' === $post->post_status && ContentTypes::isPageType( $post->post_type ) ? $this->entryFor( $post ) : null;
+		}
+		return null === $entry ? null : $this->resolve( array( $entry ) )[0];
+	}
+
+	/**
+	 * Resolves an administrator-supplied content id to its public URL. Only published
+	 * visitor-facing content (or 0 for the home page) is accepted; never a raw path.
+	 */
+	public function urlForContent( int $post_id ): ?string {
+		$row = $this->rowFor( $post_id );
+		return null === $row ? null : $row['url'];
+	}
+
+	/**
+	 * Latest problems for addresses that are not in the page list (archives, feeds...).
+	 *
+	 * @param list<string> $listed_urls
+	 * @return list<array{url:string,status:string,attempts:int,available_at:string,last_error:string}>
+	 */
+	public function otherProblems( array $listed_urls ): array {
+		return array_values(
+			array_filter(
+				$this->queue->problems( 50 ),
+				static fn( array $problem ): bool => ! in_array( $problem['url'], $listed_urls, true )
 			)
 		);
+	}
 
-		$entries = array();
-		if ( 1 === $paged && ! $this->frontPageIsPost() ) {
-			$entries[] = array(
-				'post_id'   => 0,
-				'title'     => __( 'Home page', 'static-wp-publisher' ),
-				'type'      => __( 'Home', 'static-wp-publisher' ),
-				'url'       => home_url( '/' ),
-				'protected' => false,
-			);
+	/** @return list<Entry> */
+	private function entries( int $limit ): array {
+		global $wpdb;
+		$types = ContentTypes::pageTypes();
+		$out   = array();
+		$home  = $this->homeEntry();
+		if ( null !== $home ) {
+			$out[] = $home;
 		}
-		foreach ( $query->posts as $post ) {
-			if ( ! $post instanceof WP_Post ) {
-				continue;
+		if ( array() === $types ) {
+			return $out;
+		}
+
+		// Only the columns permalinks need: loading post_content for thousands of builder
+		// pages would exhaust memory.
+		$placeholders = implode( ',', array_fill( 0, count( $types ), '%s' ) );
+		$records      = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT ID, post_author, post_title, post_name, post_type, post_status, post_parent, post_date, post_date_gmt, post_modified, post_modified_gmt, post_password, menu_order FROM {$wpdb->posts} WHERE post_status = 'publish' AND post_type IN ({$placeholders}) ORDER BY post_modified_gmt DESC, ID DESC LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+				...array_merge( $types, array( $limit ) )
+			),
+			ARRAY_A
+		);
+		if ( array() !== $records ) {
+			update_object_term_cache( array_map( static fn( array $record ): int => (int) $record['ID'], $records ), $types );
+		}
+		foreach ( $records as $record ) {
+			$record['filter'] = 'raw';
+			$entry            = $this->entryFor( new WP_Post( (object) $record ) );
+			if ( null !== $entry ) {
+				$out[] = $entry;
 			}
-			$url = get_permalink( $post );
-			$type      = get_post_type_object( $post->post_type );
-			$entries[] = array(
-				'post_id'   => (int) $post->ID,
-				'title'     => '' !== $post->post_title ? $post->post_title : __( '(no title)', 'static-wp-publisher' ),
-				'type'      => null !== $type ? (string) $type->labels->singular_name : $post->post_type,
-				'url'       => $url,
-				'protected' => '' !== $post->post_password,
-			);
 		}
+		return $out;
+	}
 
+	/** @return Entry|null */
+	private function entryFor( WP_Post $post ): ?array {
+		$url = get_permalink( $post );
+		if ( '' === $url || ! ContentScope::isStaticAddress( $url ) ) {
+			return null;
+		}
+		$type = get_post_type_object( $post->post_type );
+		return array(
+			'post_id'   => (int) $post->ID,
+			'title'     => '' !== $post->post_title ? $post->post_title : __( '(no title)', 'static-wp-publisher' ),
+			'type'      => null !== $type ? (string) $type->labels->singular_name : $post->post_type,
+			'url'       => $url,
+			'modified'  => (string) $post->post_modified_gmt,
+			'protected' => '' !== $post->post_password,
+		);
+	}
+
+	/** @return Entry|null The home page, unless a static front page already represents it. */
+	private function homeEntry(): ?array {
+		if ( 'page' === get_option( 'show_on_front' ) && (int) get_option( 'page_on_front' ) > 0 ) {
+			return null;
+		}
+		return array(
+			'post_id'   => 0,
+			'title'     => __( 'Home page', 'static-wp-publisher' ),
+			'type'      => __( 'Home', 'static-wp-publisher' ),
+			'url'       => home_url( '/' ),
+			'modified'  => '',
+			'protected' => false,
+		);
+	}
+
+	/**
+	 * @param list<Entry> $entries
+	 * @return list<Row>
+	 */
+	private function resolve( array $entries ): array {
 		$hashes    = array_map( static fn( array $entry ): string => hash( 'sha256', $entry['url'] ), $entries );
-		$jobs      = $this->queue->latestByHash( $hashes );
-		$artifacts = $this->artifactsByHash( $hashes );
+		$jobs      = array();
+		$artifacts = array();
+		foreach ( array_chunk( $hashes, 500 ) as $chunk ) {
+			$jobs      += $this->queue->latestByHash( $chunk );
+			$artifacts += $this->artifactsByHash( $chunk );
+		}
 
 		$rows = array();
 		foreach ( $entries as $index => $entry ) {
-			$hash     = $hashes[ $index ];
-			$artifact = $artifacts[ $hash ] ?? null;
+			$artifact = $artifacts[ $hashes[ $index ] ] ?? null;
 			$rows[]   = array(
 				'post_id'      => $entry['post_id'],
 				'title'        => $entry['title'],
 				'type'         => $entry['type'],
 				'url'          => $entry['url'],
-				'status'       => PageStatus::resolve( $jobs[ $hash ] ?? null, $artifact, $entry['protected'] ),
+				'modified'     => $entry['modified'],
+				'status'       => PageStatus::resolve( $jobs[ $hashes[ $index ] ] ?? null, $artifact, $entry['protected'] ),
 				'published_at' => null === $artifact ? '' : $artifact['published_at'],
 				'bytes'        => null === $artifact ? 0 : $artifact['bytes'],
 			);
 		}
-
-		return array(
-			'rows'  => $rows,
-			'pages' => max( 1, (int) $query->max_num_pages ),
-		);
-	}
-
-	/**
-	 * Resolves an administrator-supplied content id to its public URL. Only published,
-	 * publicly viewable content (or 0 for the home page) is accepted; never a raw path.
-	 */
-	public function urlForContent( int $post_id ): ?string {
-		if ( 0 === $post_id ) {
-			return home_url( '/' );
-		}
-		$post = get_post( $post_id );
-		if ( ! $post instanceof WP_Post || 'publish' !== $post->post_status || ! in_array( $post->post_type, $this->postTypes(), true ) ) {
-			return null;
-		}
-		return get_permalink( $post );
-	}
-
-	/** @return list<string> */
-	private function postTypes(): array {
-		$types = array_values( get_post_types( array( 'public' => true ), 'names' ) );
-		$types = array_values( array_diff( $types, array( 'attachment' ) ) );
-		return array() === $types ? array( 'page' ) : $types;
-	}
-
-	private function frontPageIsPost(): bool {
-		return 'page' === get_option( 'show_on_front' ) && (int) get_option( 'page_on_front' ) > 0;
+		return $rows;
 	}
 
 	/**

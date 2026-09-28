@@ -51,8 +51,10 @@ final class Plugin {
 
 		( new LocalServer( $storage ) )->register();
 		( new Invalidator( $queue ) )->register();
-		( new AdminPage( $queue, $publisher, $inventory, $storage, new StatusReport( $database, $queue ), new Verifier() ) )->register();
-		( new RestController( $queue, $publisher, $inventory, $storage ) )->register();
+		$report   = new StatusReport( $database, $queue );
+		$verifier = new Verifier();
+		( new AdminPage( $queue, $publisher, $inventory, $storage, $report, $verifier ) )->register();
+		( new RestController( $queue, $publisher, $inventory, $storage, $report, $verifier ) )->register();
 
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			Commands::register( $queue, $publisher, $inventory, $storage );

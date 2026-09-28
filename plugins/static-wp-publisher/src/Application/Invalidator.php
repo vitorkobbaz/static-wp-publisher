@@ -47,6 +47,12 @@ final class Invalidator {
 		if ( wp_is_post_revision( $post_id ) || wp_is_post_autosave( $post_id ) || 'publish' !== $post->post_status ) {
 			return;
 		}
+		if ( ContentTypes::isTemplateType( $post->post_type ) ) {
+			// Builder templates (headers, footers, popups) have no page of their own but
+			// change how every page renders.
+			$this->globalChanged();
+			return;
+		}
 		$url = get_permalink( $post_id );
 		if ( is_string( $url ) ) {
 			$this->queue->enqueue( $url, 'post_changed' );

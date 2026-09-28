@@ -63,7 +63,7 @@ final class Inventory {
 			++$count;
 		}
 
-		$post_types = array_values( get_post_types( array( 'public' => true ), 'names' ) );
+		$post_types = ContentTypes::pageTypes();
 		$query      = new WP_Query(
 			array(
 				'post_type'              => $post_types,

@@ -19,7 +19,8 @@ use SWPP\Core\Infrastructure\Storage;
 use SWPP\Core\Infrastructure\Verifier;
 
 final class AdminPage {
-	private const SLUG = 'static-wp-publisher';
+	private const SLUG     = 'static-wp-publisher';
+	private const BULK_MAX = 50;
 
 	private string $hook = '';
 
@@ -36,8 +37,9 @@ final class AdminPage {
 		add_action( 'admin_menu', array( $this, 'menu' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'assets' ) );
 		add_action( 'admin_post_swpp_generate_all', array( $this, 'generateAll' ) );
-		add_action( 'admin_post_swpp_regenerate', array( $this, 'regenerate' ) );
-		add_action( 'admin_post_swpp_verify', array( $this, 'verify' ) );
+		add_action( 'admin_post_swpp_process_pending', array( $this, 'processPending' ) );
+		add_action( 'admin_post_swpp_' . PageActions::REGENERATE, array( $this, 'regenerate' ) );
+		add_action( 'admin_post_swpp_' . PageActions::VERIFY, array( $this, 'verify' ) );
 		add_action( 'admin_post_swpp_toggle_serving', array( $this, 'toggleServing' ) );
 	}
 
@@ -51,31 +53,41 @@ final class AdminPage {
 			'dashicons-performance',
 			58
 		);
+		add_action( 'load-' . $this->hook, array( $this, 'handleBulkAction' ) );
 	}
 
 	public function assets( string $hook ): void {
 		if ( '' === $this->hook || $hook !== $this->hook ) {
 			return;
 		}
-		$base = plugins_url( 'assets/', SWPP_FILE );
-		wp_enqueue_style( 'swpp-admin', $base . 'admin.css', array(), SWPP_VERSION );
+		$base   = plugins_url( 'assets/', SWPP_FILE );
+		$counts = $this->queue->latestCounts();
+		wp_enqueue_style( 'swpp-admin', $base . 'admin.css', array( 'dashicons' ), SWPP_VERSION );
 		wp_enqueue_script( 'swpp-admin', $base . 'admin.js', array(), SWPP_VERSION, true );
 		wp_localize_script(
 			'swpp-admin',
 			'swppAdmin',
 			array(
-				'root'    => esc_url_raw( rest_url( 'swpp/v1/' ) ),
-				'nonce'   => wp_create_nonce( 'wp_rest' ),
-				'pageUrl' => admin_url( 'admin.php?page=' . self::SLUG ),
-				'i18n'    => array(
+				'root'       => esc_url_raw( rest_url( 'swpp/v1/' ) ),
+				'nonce'      => wp_create_nonce( 'wp_rest' ),
+				'pageUrl'    => $this->pageUrl(),
+				'inProgress' => $counts['queued'] + $counts['running'],
+				'i18n'       => array(
 					/* translators: 1: pages published, 2: pages not publishable, 3: errors, 4: pages still waiting. */
-					'progress' => __( 'Working… %1$d published, %2$d not publishable, %3$d errors, %4$d waiting.', 'static-wp-publisher' ),
+					'progress'     => __( 'Working… %1$d published, %2$d not publishable, %3$d errors, %4$d waiting.', 'static-wp-publisher' ),
 					/* translators: 1: pages published, 2: pages not publishable, 3: errors. */
-					'done'     => __( 'Generation finished: %1$d published, %2$d not publishable, %3$d errors.', 'static-wp-publisher' ),
+					'done'         => __( 'Finished: %1$d published, %2$d not publishable, %3$d errors.', 'static-wp-publisher' ),
 					/* translators: 1: pages published, 2: pages waiting to retry. */
-					'retrying' => __( 'Generation paused: %1$d published; %2$d page(s) will retry automatically after an error.', 'static-wp-publisher' ),
-					'failed'   => __( 'Generation stopped because the server returned an error. Reload the page and try again.', 'static-wp-publisher' ),
-					'starting' => __( 'Listing the pages of your site…', 'static-wp-publisher' ),
+					'retrying'     => __( 'Paused: %1$d published; %2$d page(s) will retry automatically after an error.', 'static-wp-publisher' ),
+					'failed'       => __( 'Stopped because the server returned an error. Reload the page and try again.', 'static-wp-publisher' ),
+					'starting'     => __( 'Listing the pages of your site…', 'static-wp-publisher' ),
+					/* translators: 1: items done, 2: items selected. */
+					'bulkProgress' => __( 'Working on %1$d of %2$d selected pages…', 'static-wp-publisher' ),
+					/* translators: 1: pages that succeeded, 2: pages with a warning, 3: pages that failed. */
+					'bulkDone'     => __( 'Done: %1$d OK, %2$d with warnings, %3$d failed. Reload the page to refresh the counters.', 'static-wp-publisher' ),
+					'noSelection'  => __( 'Select at least one page first.', 'static-wp-publisher' ),
+					'working'      => __( 'Working…', 'static-wp-publisher' ),
+					'requestError' => __( 'The request failed. Reload the page and try again.', 'static-wp-publisher' ),
 				),
 			)
 		);
@@ -86,11 +98,12 @@ final class AdminPage {
 			wp_die( esc_html__( 'You are not allowed to manage static publication.', 'static-wp-publisher' ) );
 		}
 
-		$settings = get_option( 'swpp_settings', array() );
-		$enabled  = is_array( $settings ) && ! empty( $settings['enabled'] );
-		$summary  = $this->report->summary();
-		$paged    = isset( $_GET['swpp_page'] ) ? max( 1, absint( $_GET['swpp_page'] ) ) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$listing  = $this->report->rows( $paged );
+		require_once ABSPATH . 'wp-admin/includes/class-wp-list-table.php';
+		$presenter = StatusPresenter::forCurrentSettings();
+		$table     = new PagesTable( $this->report, $presenter, $this->pageUrl() );
+		$table->prepare_items();
+		$listing = $table->listing();
+		$enabled = $presenter->servingEnabled();
 		?>
 		<div class="wrap swpp-admin">
 			<h1><?php esc_html_e( 'Static WP Publisher', 'static-wp-publisher' ); ?></h1>
@@ -99,6 +112,7 @@ final class AdminPage {
 			<div class="swpp-banner <?php echo $enabled ? 'swpp-banner--on' : 'swpp-banner--off'; ?>">
 				<div>
 					<p class="swpp-banner__title">
+						<span class="dashicons <?php echo $enabled ? 'dashicons-yes-alt' : 'dashicons-controls-pause'; ?>" aria-hidden="true"></span>
 						<?php echo $enabled ? esc_html__( 'Static serving is ON', 'static-wp-publisher' ) : esc_html__( 'Static serving is OFF', 'static-wp-publisher' ); ?>
 					</p>
 					<p>
@@ -112,57 +126,46 @@ final class AdminPage {
 				<?php $this->actionButton( 'swpp_toggle_serving', $enabled ? __( 'Turn static serving off', 'static-wp-publisher' ) : __( 'Turn static serving on', 'static-wp-publisher' ), $enabled ? 'button' : 'button button-primary' ); ?>
 			</div>
 
-			<div class="swpp-cards">
-				<?php
-				$this->card(
-					__( 'Static copies', 'static-wp-publisher' ),
-					$summary['static'],
-					/* translators: %d: number of public pages and posts. */
-					sprintf( _n( '%d public page or post on this site.', '%d public pages and posts on this site.', $summary['content'], 'static-wp-publisher' ), $summary['content'] ),
-					'good'
-				);
-				$this->card(
-					__( 'Waiting', 'static-wp-publisher' ),
-					$summary['queued'] + $summary['running'] + $summary['retrying'],
-					/* translators: %d: number of pages waiting to retry. */
-					sprintf( __( '%d retrying after an error.', 'static-wp-publisher' ), $summary['retrying'] ),
-					$summary['retrying'] > 0 ? 'warn' : 'neutral'
-				);
-				$this->card(
-					__( 'Served by WordPress', 'static-wp-publisher' ),
-					$summary['skipped'],
-					/* translators: %d: number of password-protected pages. */
-					sprintf( __( 'Not publishable as static HTML (%d password protected). They keep working normally.', 'static-wp-publisher' ), $summary['protected'] ),
-					'neutral'
-				);
-				$this->card(
-					__( 'Errors', 'static-wp-publisher' ),
-					$summary['failed'],
-					__( 'Pages that could not be generated after several attempts.', 'static-wp-publisher' ),
-					$summary['failed'] > 0 ? 'bad' : 'neutral'
-				);
-				?>
-			</div>
+			<?php $this->renderCards( $listing ); ?>
 
 			<div class="swpp-generate">
-				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-swpp-generate>
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-swpp-generate="build" class="swpp-inline-form">
 					<input type="hidden" name="action" value="swpp_generate_all">
 					<?php wp_nonce_field( 'swpp_generate_all' ); ?>
-					<button type="submit" class="button button-primary button-hero"><?php esc_html_e( 'Generate all pages now', 'static-wp-publisher' ); ?></button>
+					<button type="submit" class="button button-primary button-large"><?php esc_html_e( 'Generate all pages now', 'static-wp-publisher' ); ?></button>
 				</form>
-				<p class="description"><?php esc_html_e( 'Creates or refreshes the static copy of every public page. Pages also update automatically in the background when you edit content.', 'static-wp-publisher' ); ?></p>
+				<?php if ( $listing['counts'][ PageStatus::GROUP_PENDING ] > 0 ) : ?>
+					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-swpp-generate="process" class="swpp-inline-form">
+						<input type="hidden" name="action" value="swpp_process_pending">
+						<?php wp_nonce_field( 'swpp_process_pending' ); ?>
+						<button type="submit" class="button button-large"><?php esc_html_e( 'Process pending now', 'static-wp-publisher' ); ?></button>
+					</form>
+				<?php endif; ?>
+				<p class="description"><?php esc_html_e( 'Pages update automatically in the background (about once a minute) whenever you edit content. Use these buttons to do it right away.', 'static-wp-publisher' ); ?></p>
 				<div class="swpp-progress" data-swpp-progress hidden>
 					<progress data-swpp-progress-bar></progress>
 					<p data-swpp-progress-text role="status" aria-live="polite"></p>
 				</div>
+				<p class="swpp-live" data-swpp-live hidden><span class="spinner is-active" aria-hidden="true"></span><?php esc_html_e( 'Pages are being updated in the background. This list refreshes automatically when they finish.', 'static-wp-publisher' ); ?></p>
 			</div>
 
-			<h2><?php esc_html_e( 'Pages and posts', 'static-wp-publisher' ); ?></h2>
-			<p class="description"><?php esc_html_e( '"Check" loads the page as an anonymous visitor and tells you whether it was delivered from the static copy.', 'static-wp-publisher' ); ?></p>
-			<?php $this->renderRows( $listing['rows'], $enabled ); ?>
-			<?php $this->renderPagination( $paged, $listing['pages'] ); ?>
+			<form method="get" data-swpp-table>
+				<input type="hidden" name="page" value="<?php echo esc_attr( self::SLUG ); ?>">
+				<input type="hidden" name="swpp_view" value="<?php echo esc_attr( PagesTable::currentView() ); ?>">
+				<?php $table->views(); ?>
+				<?php $table->search_box( __( 'Search pages', 'static-wp-publisher' ), 'swpp-search' ); ?>
+				<?php $table->display(); ?>
+			</form>
+			<?php if ( $listing['truncated'] ) : ?>
+				<p class="description">
+					<?php
+					/* translators: %d: maximum number of pages analysed. */
+					echo esc_html( sprintf( __( 'Showing the %d most recently modified pages. Counters and filters apply to these.', 'static-wp-publisher' ), $listing['limit'] ) );
+					?>
+				</p>
+			<?php endif; ?>
 
-			<?php $this->renderProblems(); ?>
+			<?php $this->renderOtherProblems( $listing ); ?>
 
 			<details class="swpp-details">
 				<summary><?php esc_html_e( 'Technical details', 'static-wp-publisher' ); ?></summary>
@@ -174,10 +177,93 @@ final class AdminPage {
 		<?php
 	}
 
+	/** No-JavaScript fallback for the bulk actions of the list table. */
+	public function handleBulkAction(): void {
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- verified below before acting.
+		$action = isset( $_REQUEST['action'] ) ? sanitize_key( wp_unslash( $_REQUEST['action'] ) ) : '-1';
+		if ( '-1' === $action && isset( $_REQUEST['action2'] ) ) {
+			$action = sanitize_key( wp_unslash( $_REQUEST['action2'] ) );
+		}
+		$map = array(
+			'swpp-' . PageActions::REGENERATE => PageActions::REGENERATE,
+			'swpp-' . PageActions::VERIFY     => PageActions::VERIFY,
+		);
+		if ( ! isset( $map[ $action ] ) ) {
+			return;
+		}
+		$this->authorize( 'bulk-swpp-pages' );
+		$ids = isset( $_REQUEST['post_ids'] ) ? array_map( 'absint', (array) wp_unslash( $_REQUEST['post_ids'] ) ) : array();
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+		$ids = array_slice( array_values( array_unique( $ids ) ), 0, self::BULK_MAX );
+		if ( array() === $ids ) {
+			$this->redirect( __( 'Select at least one page first.', 'static-wp-publisher' ), 'warning' );
+		}
+
+		$actions = $this->pageActions();
+		$tally   = array(
+			'ok'   => 0,
+			'warn' => 0,
+			'fail' => 0,
+		);
+		foreach ( $ids as $post_id ) {
+			$result = $actions->run( $map[ $action ], $post_id );
+			if ( null === $result || ! $result['ok'] ) {
+				++$tally['fail'];
+			} elseif ( 'success' === $result['level'] ) {
+				++$tally['ok'];
+			} else {
+				++$tally['warn'];
+			}
+		}
+		$this->redirect(
+			/* translators: 1: pages that succeeded, 2: pages with a warning, 3: pages that failed. */
+			sprintf( __( 'Done: %1$d OK, %2$d with warnings, %3$d failed.', 'static-wp-publisher' ), $tally['ok'], $tally['warn'], $tally['fail'] ),
+			$tally['fail'] > 0 ? 'warning' : 'success'
+		);
+	}
+
 	/** No-JavaScript fallback: queue everything and process one budgeted pass. */
 	public function generateAll(): void {
 		$this->authorize( 'swpp_generate_all' );
 		$this->inventory->enqueueAll();
+		$this->finishPass();
+	}
+
+	/** No-JavaScript fallback: process one budgeted pass of what is already queued. */
+	public function processPending(): void {
+		$this->authorize( 'swpp_process_pending' );
+		$this->finishPass();
+	}
+
+	public function regenerate(): void {
+		$this->singleAction( PageActions::REGENERATE );
+	}
+
+	public function verify(): void {
+		$this->singleAction( PageActions::VERIFY );
+	}
+
+	public function toggleServing(): void {
+		$this->authorize( 'swpp_toggle_serving' );
+		$settings            = get_option( 'swpp_settings', array() );
+		$settings            = is_array( $settings ) ? $settings : array();
+		$settings['enabled'] = empty( $settings['enabled'] );
+		update_option( 'swpp_settings', $settings, false );
+		$this->redirect( $settings['enabled'] ? __( 'Static serving is on.', 'static-wp-publisher' ) : __( 'Static serving is off. Everyone receives normal WordPress pages.', 'static-wp-publisher' ) );
+	}
+
+	private function singleAction( string $action ): void {
+		$this->authorize( 'swpp_' . $action );
+		$post_id = isset( $_REQUEST['post_id'] ) ? absint( wp_unslash( $_REQUEST['post_id'] ) ) : -1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- verified in authorize().
+		$result  = $post_id >= 0 ? $this->pageActions()->run( $action, $post_id ) : null;
+		if ( null === $result ) {
+			$this->redirect( __( 'That page is not public content of this site.', 'static-wp-publisher' ), 'error' );
+		}
+		$url = $this->report->urlForContent( $post_id );
+		$this->redirect( ( null !== $url ? $url . ' — ' : '' ) . $result['message'], $result['level'] );
+	}
+
+	private function finishPass(): void {
 		$report  = ( new Worker( $this->queue, $this->publisher ) )->runPass( $this->inventory, Worker::requestBudget() );
 		$pending = $this->queue->counts()['pending'];
 		$notice  = sprintf(
@@ -191,142 +277,54 @@ final class AdminPage {
 		$this->redirect( $notice, $report->failed > 0 ? 'warning' : 'success' );
 	}
 
-	public function regenerate(): void {
-		$this->authorize( 'swpp_regenerate' );
-		$url    = $this->requestedUrl();
-		$result = ( new Worker( $this->queue, $this->publisher ) )->runOne( $url );
-		if ( null === $result ) {
-			$this->redirect( __( 'This page is already being generated. Try again in a moment.', 'static-wp-publisher' ), 'warning' );
-		}
-		if ( $result->success ) {
-			/* translators: %s: page URL. */
-			$this->redirect( sprintf( __( 'Static copy of %s updated.', 'static-wp-publisher' ), $url ) );
-		}
-		/* translators: 1: page URL, 2: reason. */
-		$message = sprintf( __( '%1$s was not published: %2$s', 'static-wp-publisher' ), $url, $result->message );
-		if ( ! $result->retryable ) {
-			$message .= ' ' . __( 'It will keep being served by WordPress.', 'static-wp-publisher' );
-		}
-		$this->redirect( $message, $result->retryable ? 'error' : 'warning' );
-	}
-
-	public function verify(): void {
-		$this->authorize( 'swpp_verify' );
-		$url   = $this->requestedUrl();
-		$check = $this->verifier->check( $url );
-		if ( ! $check['ok'] ) {
-			/* translators: 1: page URL, 2: error message. */
-			$this->redirect( sprintf( __( 'Could not load %1$s: %2$s', 'static-wp-publisher' ), $url, $check['error'] ), 'error' );
-		}
-		if ( $check['static'] ) {
-			/* translators: 1: page URL, 2: HTTP status code, 3: response time in milliseconds. */
-			$this->redirect( sprintf( __( 'Confirmed: %1$s is delivered from the static copy (HTTP %2$d, %3$d ms).', 'static-wp-publisher' ), $url, $check['status'], $check['milliseconds'] ) );
-		}
-		/* translators: 1: page URL, 2: HTTP status code, 3: response time in milliseconds. */
-		$this->redirect( sprintf( __( '%1$s is delivered by WordPress, not from a static copy (HTTP %2$d, %3$d ms). Check that static serving is on and that the page has a static copy.', 'static-wp-publisher' ), $url, $check['status'], $check['milliseconds'] ), 'warning' );
-	}
-
-	public function toggleServing(): void {
-		$this->authorize( 'swpp_toggle_serving' );
-		$settings            = get_option( 'swpp_settings', array() );
-		$settings            = is_array( $settings ) ? $settings : array();
-		$settings['enabled'] = empty( $settings['enabled'] );
-		update_option( 'swpp_settings', $settings, false );
-		$this->redirect( $settings['enabled'] ? __( 'Static serving is on.', 'static-wp-publisher' ) : __( 'Static serving is off. Everyone receives normal WordPress pages.', 'static-wp-publisher' ) );
-	}
-
-	private function card( string $label, int $value, string $hint, string $tone ): void {
+	/**
+	 * @param array{counts:array<string,int>,covered:int,publishable:int} $listing
+	 */
+	private function renderCards( array $listing ): void {
+		$counts  = $listing['counts'];
+		$percent = $listing['publishable'] > 0 ? (int) floor( 100 * $listing['covered'] / $listing['publishable'] ) : 0;
 		?>
-		<div class="swpp-card swpp-card--<?php echo esc_attr( $tone ); ?>">
-			<p class="swpp-card__label"><?php echo esc_html( $label ); ?></p>
-			<p class="swpp-card__value"><?php echo esc_html( number_format_i18n( $value ) ); ?></p>
-			<p class="swpp-card__hint"><?php echo esc_html( $hint ); ?></p>
+		<div class="swpp-cards">
+			<a class="swpp-card swpp-card--<?php echo $percent >= 100 ? 'good' : 'info'; ?>" href="<?php echo esc_url( add_query_arg( 'swpp_view', PageStatus::GROUP_STATIC, $this->pageUrl() ) ); ?>">
+				<span class="swpp-card__label"><?php esc_html_e( 'Static coverage', 'static-wp-publisher' ); ?></span>
+				<span class="swpp-card__value">
+					<?php
+					/* translators: 1: pages with a static copy, 2: pages that can be static. */
+					echo esc_html( sprintf( __( '%1$s of %2$s', 'static-wp-publisher' ), number_format_i18n( $listing['covered'] ), number_format_i18n( $listing['publishable'] ) ) );
+					?>
+				</span>
+				<progress class="swpp-card__meter" max="100" value="<?php echo esc_attr( (string) $percent ); ?>"><?php echo esc_html( $percent . '%' ); ?></progress>
+				<span class="swpp-card__hint">
+					<?php
+					/* translators: %d: percentage of publishable pages that have a static copy. */
+					echo esc_html( sprintf( __( '%d%% of the pages that can be static are delivered as HTML.', 'static-wp-publisher' ), $percent ) );
+					?>
+				</span>
+			</a>
+			<?php
+			$this->card( PageStatus::GROUP_PENDING, __( 'Pending', 'static-wp-publisher' ), $counts[ PageStatus::GROUP_PENDING ], __( 'Queued, generating, or retrying.', 'static-wp-publisher' ), $counts[ PageStatus::GROUP_PENDING ] > 0 ? 'info' : 'neutral' );
+			$this->card( PageStatus::GROUP_DYNAMIC, __( 'Served by WordPress', 'static-wp-publisher' ), $counts[ PageStatus::GROUP_DYNAMIC ], __( 'Password-protected or personalized pages. They keep working normally.', 'static-wp-publisher' ), 'neutral' );
+			$this->card( PageStatus::GROUP_ATTENTION, __( 'Needs attention', 'static-wp-publisher' ), $counts[ PageStatus::GROUP_ATTENTION ], __( 'Errors, outdated copies, or protected pages still public.', 'static-wp-publisher' ), $counts[ PageStatus::GROUP_ATTENTION ] > 0 ? 'bad' : 'neutral' );
+			?>
 		</div>
 		<?php
 	}
 
-	/**
-	 * @param list<array{post_id:int,title:string,type:string,url:string,status:PageStatus,published_at:string,bytes:int}> $rows
-	 */
-	private function renderRows( array $rows, bool $enabled ): void {
+	private function card( string $view, string $label, int $value, string $hint, string $tone ): void {
 		?>
-		<table class="widefat striped swpp-pages">
-			<thead>
-				<tr>
-					<th scope="col"><?php esc_html_e( 'Page', 'static-wp-publisher' ); ?></th>
-					<th scope="col"><?php esc_html_e( 'Status', 'static-wp-publisher' ); ?></th>
-					<th scope="col"><?php esc_html_e( 'Static copy updated', 'static-wp-publisher' ); ?></th>
-					<th scope="col"><?php esc_html_e( 'Size', 'static-wp-publisher' ); ?></th>
-					<th scope="col"><?php esc_html_e( 'Actions', 'static-wp-publisher' ); ?></th>
-				</tr>
-			</thead>
-			<tbody>
-				<?php if ( array() === $rows ) : ?>
-					<tr><td colspan="5"><?php esc_html_e( 'No public pages found.', 'static-wp-publisher' ); ?></td></tr>
-				<?php endif; ?>
-				<?php foreach ( $rows as $row ) : ?>
-					<?php list( $label, $tone ) = $this->statusLabel( $row['status'], $enabled ); ?>
-					<tr data-swpp-url="<?php echo esc_attr( $row['url'] ); ?>">
-						<td>
-							<strong><?php echo esc_html( $row['title'] ); ?></strong>
-							<span class="swpp-muted"><?php echo esc_html( $row['type'] ); ?></span><br>
-							<code class="swpp-url"><?php echo esc_html( $row['url'] ); ?></code>
-						</td>
-						<td>
-							<span class="swpp-badge swpp-badge--<?php echo esc_attr( $tone ); ?>" data-swpp-status="<?php echo esc_attr( $row['status']->key ); ?>"><?php echo esc_html( $label ); ?></span>
-							<?php if ( '' !== $row['status']->detail ) : ?>
-								<br><span class="swpp-muted"><?php echo esc_html( $row['status']->detail ); ?></span>
-							<?php endif; ?>
-						</td>
-						<td><?php echo '' !== $row['published_at'] ? esc_html( $this->localTime( $row['published_at'] ) ) : '&mdash;'; ?></td>
-						<td><?php echo $row['bytes'] > 0 ? esc_html( (string) size_format( $row['bytes'] ) ) : '&mdash;'; ?></td>
-						<td class="swpp-actions">
-							<a class="button button-small" href="<?php echo esc_url( $row['url'] ); ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'View', 'static-wp-publisher' ); ?></a>
-							<?php $this->rowButton( 'swpp_regenerate', $row['post_id'], __( 'Regenerate', 'static-wp-publisher' ) ); ?>
-							<?php $this->rowButton( 'swpp_verify', $row['post_id'], __( 'Check', 'static-wp-publisher' ) ); ?>
-						</td>
-					</tr>
-				<?php endforeach; ?>
-			</tbody>
-		</table>
+		<a class="swpp-card swpp-card--<?php echo esc_attr( $tone ); ?>" href="<?php echo esc_url( add_query_arg( 'swpp_view', $view, $this->pageUrl() ) ); ?>" data-swpp-card="<?php echo esc_attr( $view ); ?>">
+			<span class="swpp-card__label"><?php echo esc_html( $label ); ?></span>
+			<span class="swpp-card__value"><?php echo esc_html( number_format_i18n( $value ) ); ?></span>
+			<span class="swpp-card__hint"><?php echo esc_html( $hint ); ?></span>
+		</a>
 		<?php
 	}
 
-	/** @return array{0:string,1:string} Label and tone. */
-	private function statusLabel( PageStatus $status, bool $enabled ): array {
-		return match ( $status->key ) {
-			PageStatus::STATIC_COPY => array( $enabled ? __( 'Static', 'static-wp-publisher' ) : __( 'Static copy ready', 'static-wp-publisher' ), 'good' ),
-			PageStatus::UPDATING    => array( __( 'Static · update queued', 'static-wp-publisher' ), 'good' ),
-			PageStatus::STALE       => array( __( 'Static · last update failed', 'static-wp-publisher' ), 'warn' ),
-			PageStatus::EXPOSED     => array( __( 'Protected page still public — regenerate', 'static-wp-publisher' ), 'bad' ),
-			PageStatus::QUEUED      => array( __( 'Queued', 'static-wp-publisher' ), 'neutral' ),
-			PageStatus::GENERATING  => array( __( 'Generating', 'static-wp-publisher' ), 'info' ),
-			PageStatus::RETRYING    => array( __( 'Retrying after an error', 'static-wp-publisher' ), 'warn' ),
-			PageStatus::DYNAMIC     => array( __( 'Served by WordPress', 'static-wp-publisher' ), 'neutral' ),
-			PageStatus::ERROR       => array( __( 'Error', 'static-wp-publisher' ), 'bad' ),
-			default                 => array( __( 'Not generated yet', 'static-wp-publisher' ), 'neutral' ),
-		};
-	}
-
-	private function renderPagination( int $paged, int $pages ): void {
-		if ( $pages <= 1 ) {
-			return;
-		}
-		$links = paginate_links(
-			array(
-				'base'    => add_query_arg( 'swpp_page', '%#%', admin_url( 'admin.php?page=' . self::SLUG ) ),
-				'format'  => '',
-				'current' => $paged,
-				'total'   => $pages,
-			)
-		);
-		if ( '' !== $links ) {
-			echo '<div class="tablenav"><div class="tablenav-pages">' . wp_kses_post( $links ) . '</div></div>';
-		}
-	}
-
-	private function renderProblems(): void {
-		$problems = $this->queue->problems();
+	/**
+	 * @param array{urls:list<string>} $listing
+	 */
+	private function renderOtherProblems( array $listing ): void {
+		$problems = $this->report->otherProblems( $listing['urls'] );
 		if ( array() === $problems ) {
 			return;
 		}
@@ -336,14 +334,13 @@ final class AdminPage {
 			'skipped' => __( 'Served by WordPress', 'static-wp-publisher' ),
 		);
 		?>
-		<h2><?php esc_html_e( 'Needs attention', 'static-wp-publisher' ); ?></h2>
-		<p class="description"><?php esc_html_e( 'Latest result for every address that could not be published, including archive pages.', 'static-wp-publisher' ); ?></p>
+		<h2><?php esc_html_e( 'Other addresses', 'static-wp-publisher' ); ?></h2>
+		<p class="description"><?php esc_html_e( 'Archive and category pages whose latest generation did not succeed.', 'static-wp-publisher' ); ?></p>
 		<table class="widefat striped">
 			<thead>
 				<tr>
 					<th scope="col"><?php esc_html_e( 'Address', 'static-wp-publisher' ); ?></th>
 					<th scope="col"><?php esc_html_e( 'Status', 'static-wp-publisher' ); ?></th>
-					<th scope="col"><?php esc_html_e( 'Next attempt', 'static-wp-publisher' ); ?></th>
 					<th scope="col"><?php esc_html_e( 'Reason', 'static-wp-publisher' ); ?></th>
 				</tr>
 			</thead>
@@ -352,7 +349,6 @@ final class AdminPage {
 					<tr>
 						<td><a href="<?php echo esc_url( $problem['url'] ); ?>" target="_blank" rel="noopener noreferrer"><?php echo esc_html( $problem['url'] ); ?></a></td>
 						<td><?php echo esc_html( $labels[ $problem['status'] ] ?? $problem['status'] ); ?></td>
-						<td><?php echo 'pending' === $problem['status'] ? esc_html( $this->localTime( $problem['available_at'] ) ) : '&mdash;'; ?></td>
 						<td><?php echo esc_html( $problem['last_error'] ); ?></td>
 					</tr>
 				<?php endforeach; ?>
@@ -375,6 +371,7 @@ final class AdminPage {
 		<ul class="ul-disc">
 			<li><?php esc_html_e( 'The static copy is currently delivered by WordPress itself (PHP fallback). Web-server rules for maximum speed are planned.', 'static-wp-publisher' ); ?></li>
 			<li><?php esc_html_e( 'Search, forms, comments, login, carts, checkout, accounts, and personalized pages always use WordPress.', 'static-wp-publisher' ); ?></li>
+			<li><?php esc_html_e( 'Page-builder templates (headers, footers, popups) are not pages; editing one regenerates every page.', 'static-wp-publisher' ); ?></li>
 			<li><?php esc_html_e( 'WP-Cron can be late on low-traffic sites. Configure a real scheduler for precise background updates.', 'static-wp-publisher' ); ?></li>
 		</ul>
 		<?php
@@ -394,29 +391,12 @@ final class AdminPage {
 		<?php
 	}
 
-	private function localTime( string $utc_mysql ): string {
-		$timestamp = strtotime( $utc_mysql . ' UTC' );
-		return false === $timestamp ? $utc_mysql : (string) wp_date( 'Y-m-d H:i', $timestamp );
+	private function pageActions(): PageActions {
+		return new PageActions( new Worker( $this->queue, $this->publisher ), $this->report, $this->verifier );
 	}
 
-	private function requestedUrl(): string {
-		$post_id = isset( $_POST['post_id'] ) ? absint( wp_unslash( $_POST['post_id'] ) ) : -1; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified in authorize().
-		$url     = $post_id >= 0 ? $this->report->urlForContent( $post_id ) : null;
-		if ( null === $url ) {
-			$this->redirect( __( 'That page is not public content of this site.', 'static-wp-publisher' ), 'error' );
-		}
-		return $url;
-	}
-
-	private function rowButton( string $action, int $post_id, string $label ): void {
-		?>
-		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-			<input type="hidden" name="action" value="<?php echo esc_attr( $action ); ?>">
-			<input type="hidden" name="post_id" value="<?php echo esc_attr( (string) $post_id ); ?>">
-			<?php wp_nonce_field( $action, '_wpnonce', false ); ?>
-			<button type="submit" class="button button-small"><?php echo esc_html( $label ); ?></button>
-		</form>
-		<?php
+	private function pageUrl(): string {
+		return admin_url( 'admin.php?page=' . self::SLUG );
 	}
 
 	private function actionButton( string $action, string $label, string $css_class = 'button' ): void {
@@ -443,7 +423,7 @@ final class AdminPage {
 					'swpp_notice' => rawurlencode( $notice ),
 					'swpp_level'  => $level,
 				),
-				admin_url( 'admin.php?page=' . self::SLUG )
+				$this->pageUrl()
 			)
 		);
 		exit;

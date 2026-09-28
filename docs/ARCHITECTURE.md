@@ -19,14 +19,24 @@ WP-Cron is a compatibility fallback. Production sites should configure a real sc
 
 ## Administration
 
-The Static Publisher screen is a read model (`StatusReport`) over the queue, the artifacts table, and public content:
+The Static Publisher screen is a read model (`StatusReport`) over the queue, the artifacts table, and visitor-facing content.
 
-- A banner shows whether static serving is on, with a single toggle.
-- Summary cards show static copies, waiting and retrying jobs, pages served by WordPress (not publishable, including password-protected), and errors. Counts use the latest job per URL.
-- "Generate all pages now" starts a full inventory scan and runs REST worker passes (`/swpp/v1/build`, then `/swpp/v1/process` until nothing is due) with a progress bar. Without JavaScript it falls back to one server-side pass.
-- A paginated list of public pages and posts resolves each row with `Domain\PageStatus` (static, updating, stale, exposed, queued, generating, retrying, served by WordPress, error, not generated).
-- Per-row actions: "Regenerate" runs that URL immediately through the queue. "Check" performs an anonymous loopback request without cookies and reports whether the `X-Static-WP-Publisher: HIT` header was returned.
-- Row actions accept a content ID (0 = home page), never a URL or path. The ID must resolve to published, public content.
+- **Content scope.** Only public post types that are real pages count. Page-builder and block-theme templates are excluded, as are content items whose address carries a query string. The excluded types are `elementor_library`, `e-floating-buttons`, `wp_template`, Divi/Beaver/Oxygen/Bricks libraries, and others (`DomainContentScope`, filter `swpp_excluded_post_types`). Publishing a template does not queue its own address. It requests a full rebuild, because headers and footers change every page.
+- **States.** `DomainPageStatus` resolves each page from its latest job and artifact, then maps it to one tab:
+  - *Static*: an up-to-date copy.
+  - *Pending*: queued, generating, retrying, or update pending.
+  - *Needs attention*: error, outdated copy, or a protected page that still has a public copy.
+  - *Served by WordPress*: password-protected or not publishable.
+  - *Not generated*.
+
+  Colours follow the group: green only for up-to-date copies, blue for pending, amber for retrying or outdated, red for failures, grey for WordPress-only pages. Every state also has an icon.
+- **Summary cards** link to their tab. The first card shows coverage, meaning covered publishable pages out of all publishable pages. Status is resolved in PHP for up to 2,000 recently modified items (`swpp_dashboard_item_limit`), with only the columns permalinks need. A persisted URL index is pending for very large sites.
+- **List.** The list is a native `WP_List_Table` with tabs, search, pagination, checkboxes, and bulk actions (Regenerate, Check delivery). Row actions are View, Regenerate, and Check delivery.
+  - With JavaScript, row and bulk actions run in place through `POST /swpp/v1/pages/{id}/{regenerate|verify}`, and only the affected rows are updated.
+  - Without JavaScript, the same actions go through admin-post (row) or the list-table request (bulk, up to 50 items).
+- **Generation.** "Generate all pages now" runs `/swpp/v1/build`, then `/swpp/v1/process` passes with a progress bar. "Process pending now" runs only the process passes. While jobs are queued or running, the screen polls `/swpp/v1/status` and reloads when they finish, unless the user is selecting rows or an action is running.
+- **Row actions** accept a content ID (0 = home page), never a URL or path. The ID must resolve to published, visitor-facing content.
+- **Verification.** "Check delivery" performs an anonymous loopback request without cookies. It reports whether the `X-Static-WP-Publisher: HIT` header came back, with the HTTP status and timing.
 
 ## Storage
 

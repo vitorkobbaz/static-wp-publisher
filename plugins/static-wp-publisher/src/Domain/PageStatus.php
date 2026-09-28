@@ -56,6 +56,28 @@ final readonly class PageStatus {
 		};
 	}
 
+	public const GROUP_STATIC    = 'static';
+	public const GROUP_PENDING   = 'pending';
+	public const GROUP_ATTENTION = 'attention';
+	public const GROUP_DYNAMIC   = 'dynamic';
+	public const GROUP_MISSING   = 'missing';
+
+	/** Dashboard tab for this state. Only an up-to-date copy counts as "static". */
+	public function group(): string {
+		return match ( $this->key ) {
+			self::STATIC_COPY => self::GROUP_STATIC,
+			self::UPDATING, self::QUEUED, self::GENERATING, self::RETRYING => self::GROUP_PENDING,
+			self::STALE, self::EXPOSED, self::ERROR => self::GROUP_ATTENTION,
+			self::DYNAMIC => self::GROUP_DYNAMIC,
+			default => self::GROUP_MISSING,
+		};
+	}
+
+	/** True for pages that should become static (everything except WordPress-only pages). */
+	public function isPublishable(): bool {
+		return self::DYNAMIC !== $this->key && self::EXPOSED !== $this->key;
+	}
+
 	/** True when anonymous visitors currently receive the static copy. */
 	public function isServedStatically(): bool {
 		return in_array( $this->key, array( self::STATIC_COPY, self::UPDATING, self::STALE, self::EXPOSED ), true );
