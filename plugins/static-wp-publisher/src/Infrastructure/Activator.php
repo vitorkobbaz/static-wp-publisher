@@ -19,6 +19,8 @@ final class Activator {
 			'profile'             => 'conservative',
 			'retain_versions'     => 3,
 			'delete_on_uninstall' => false,
+			'optimize'            => true,
+			'combine_css'         => false,
 		);
 		add_option( 'swpp_settings', $defaults, '', false );
 

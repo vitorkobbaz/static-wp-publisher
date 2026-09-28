@@ -19,7 +19,10 @@ This document separates the implemented Core + Individual Export MVP from work s
 ## Core follow-up
 
 - Handle nonces embedded in public HTML. Static pages keep the anonymous nonces that themes/plugins print (for example `ElementorProFrontendConfig.nonce`), which WordPress invalidates after 12–24 hours; AJAX features and forms that verify them may start failing. Needed: detection in Eligibility/diagnostics, periodic regeneration of affected pages within the nonce lifetime, and an E2E check with Elementor-style config.
-- Continue the admin "Process next batch" action automatically until the queue is empty (currently one budgeted pass of up to 50 URLs per click).
+- Translate the administration screen (pt_BR first) once the release translation pipeline exists.
+- Show archive/term pages as rows of the dashboard list with a type filter. Today they appear only under "Other addresses" when their latest generation failed.
+- Persist a URL index for the dashboard so tabs, counters, and search scale past the 2,000-item analysis window (`swpp_dashboard_item_limit`) toward the 100,000-URL target.
+- Per-page "Always serve with WordPress" exclusion (row and bulk action). This is useful for pages whose forms depend on expiring nonces.
 
 - Enforce the free-tier limit of 10 published pages. The monetization model defines it, but the current `Inventory`/`Eligibility` code does not apply any page cap yet.
 
@@ -29,6 +32,14 @@ This document separates the implemented Core + Individual Export MVP from work s
 - Add structured logs, retention controls, health diagnostics, and downloadable support reports.
 - Expand dependency invalidation for theme-specific archives, widgets, global blocks, and plugin-defined routes.
 - Certify supported combinations of WooCommerce, WPML, Polylang, and TranslatePress.
+
+- Remaining PageSpeed items outside the safe optimizer:
+  - critical CSS inlining and deferring jQuery-dependent scripts;
+  - delaying third-party tags (Tag Manager/analytics);
+  - responsive `sizes` for images displayed smaller than their source;
+  - long cache lifetimes for versioned assets through web-server rules.
+- Sweep combined-CSS bundles that no static copy references any more. They are content-addressed and only accumulate when CSS changes.
+- Promote "Combine CSS files" from experimental after real-site feedback, possibly with an automated before/after visual comparison in the admin.
 
 ## Individual Export follow-up
 

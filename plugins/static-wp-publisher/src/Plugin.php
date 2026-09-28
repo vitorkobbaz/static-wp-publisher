@@ -12,15 +12,19 @@ namespace SWPP\Core;
 use SWPP\Core\Admin\AdminPage;
 use SWPP\Core\Application\Invalidator;
 use SWPP\Core\Application\Inventory;
+use SWPP\Core\Application\PageOptimizer;
 use SWPP\Core\Application\Publisher;
 use SWPP\Core\Application\Queue;
+use SWPP\Core\Application\StatusReport;
 use SWPP\Core\Application\Worker;
 use SWPP\Core\Cli\Commands;
 use SWPP\Core\Http\RestController;
 use SWPP\Core\Infrastructure\Database;
 use SWPP\Core\Infrastructure\CronSchedule;
+use SWPP\Core\Infrastructure\LocalAssetResolver;
 use SWPP\Core\Infrastructure\Renderer;
 use SWPP\Core\Infrastructure\Storage;
+use SWPP\Core\Infrastructure\Verifier;
 use SWPP\Core\Serving\LocalServer;
 
 final class Plugin {
@@ -41,7 +45,7 @@ final class Plugin {
 		$database->maybeUpgrade();
 		$storage   = new Storage();
 		$queue     = new Queue( $database );
-		$publisher = new Publisher( new Renderer(), $storage, $database );
+		$publisher = new Publisher( new Renderer(), $storage, $database, new PageOptimizer( new LocalAssetResolver( $storage ) ) );
 		$inventory = new Inventory( $queue );
 
 		add_filter( 'cron_schedules', array( CronSchedule::class, 'add' ) );
@@ -49,8 +53,10 @@ final class Plugin {
 
 		( new LocalServer( $storage ) )->register();
 		( new Invalidator( $queue ) )->register();
-		( new AdminPage( $queue, $publisher, $inventory, $storage ) )->register();
-		( new RestController( $queue, $publisher, $inventory, $storage ) )->register();
+		$report   = new StatusReport( $database, $queue );
+		$verifier = new Verifier();
+		( new AdminPage( $queue, $publisher, $inventory, $storage, $report, $verifier ) )->register();
+		( new RestController( $queue, $publisher, $inventory, $storage, $report, $verifier ) )->register();
 
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			Commands::register( $queue, $publisher, $inventory, $storage );
@@ -62,16 +68,9 @@ final class Plugin {
 	public function processQueue(): void {
 		$database  = new Database();
 		$queue     = new Queue( $database );
-		$publisher = new Publisher( new Renderer(), new Storage(), $database );
+		$storage   = new Storage();
+		$publisher = new Publisher( new Renderer(), $storage, $database, new PageOptimizer( new LocalAssetResolver( $storage ) ) );
 
-		if ( false !== get_option( 'swpp_full_rebuild_recommended', false ) ) {
-			// Delete first so a concurrent content change can safely request another sweep.
-			delete_option( 'swpp_full_rebuild_recommended' );
-			( new Inventory( $queue ) )->enqueueAll();
-		} else {
-			( new Inventory( $queue ) )->enqueueBatch();
-		}
-
-		( new Worker( $queue, $publisher ) )->run( Worker::requestBudget() );
+		( new Worker( $queue, $publisher ) )->runPass( new Inventory( $queue ), Worker::requestBudget() );
 	}
 }

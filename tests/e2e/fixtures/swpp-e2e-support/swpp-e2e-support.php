@@ -24,6 +24,71 @@ $swpp_e2e_record_migration = static function (): void {
 add_action( 'add_option_swpp_schema_version', $swpp_e2e_record_migration );
 add_action( 'update_option_swpp_schema_version', $swpp_e2e_record_migration );
 
+/*
+ * Page builders register their templates as public post types. Mirror Elementor's
+ * library with a pretty permalink so exclusion is tested by type, not by query string.
+ */
+add_action(
+	'init',
+	static function (): void {
+		register_post_type(
+			'elementor_library',
+			array(
+				'public'  => true,
+				'label'   => 'My Templates',
+				'rewrite' => array( 'slug' => 'swpp-e2e-template' ),
+			)
+		);
+	}
+);
+
+/*
+ * The optimizer fixture page reproduces what PageSpeed flags on real Elementor sites:
+ * images without sizes, a hero painted as a CSS background, an inline @font-face with
+ * font-display: auto, and several local stylesheets loaded one after another.
+ */
+const SWPP_E2E_OPTIMIZE_SLUG = 'swpp-e2e-optimize';
+
+add_action(
+	'wp_enqueue_scripts',
+	static function (): void {
+		if ( ! is_page( SWPP_E2E_OPTIMIZE_SLUG ) ) {
+			return;
+		}
+		$base = trailingslashit( wp_upload_dir()['baseurl'] );
+		wp_enqueue_style( 'swpp-e2e-bg', $base . 'elementor/css/swpp-e2e-bg.css', array(), '1' );
+		wp_enqueue_style( 'swpp-e2e-one', $base . 'swpp-e2e/one.css', array( 'swpp-e2e-bg' ), '1' );
+		wp_enqueue_style( 'swpp-e2e-two', $base . 'swpp-e2e/two.css', array( 'swpp-e2e-one' ), '1' );
+		wp_enqueue_style( 'swpp-e2e-three', $base . 'swpp-e2e/three.css', array( 'swpp-e2e-two' ), '1' );
+	}
+);
+
+add_action(
+	'wp_head',
+	static function (): void {
+		if ( is_page( SWPP_E2E_OPTIMIZE_SLUG ) ) {
+			echo "<style id=\"swpp-e2e-fonts\">@font-face{font-family:'SwppE2E';font-display:auto;src:url(swpp-e2e.woff2)}</style>\n";
+		}
+	},
+	20
+);
+
+add_filter(
+	'the_content',
+	static function ( string $content ): string {
+		if ( ! is_page( SWPP_E2E_OPTIMIZE_SLUG ) ) {
+			return $content;
+		}
+		$base = trailingslashit( wp_upload_dir()['baseurl'] ) . 'swpp-e2e/';
+		$html = '<div class="elementor-element elementor-element-e2ebg" data-id="e2ebg" data-settings="{&quot;background_background&quot;:&quot;classic&quot;}"><p class="swpp-e2e-one swpp-e2e-two swpp-e2e-three">Styled by three files</p></div>';
+		for ( $i = 1; $i <= 5; ++$i ) {
+			$html .= sprintf( '<img src="%1$simg-%2$d.png" alt="img %2$d">', esc_url( $base ), $i );
+		}
+		return $content . $html;
+	},
+	20
+);
+
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
 	final class SWPP_E2E_Command {
 		private const CORE_PLUGIN   = 'static-wp-publisher/static-wp-publisher.php';
@@ -40,14 +105,20 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 
 			$this->deleteUpgradePages();
 			$this->deleteBatchPages();
+			$template = get_page_by_path( 'swpp-e2e-header', OBJECT, 'elementor_library' );
+			if ( $template instanceof \WP_Post ) {
+				wp_delete_post( $template->ID, true );
+			}
 			deactivate_plugins( array( self::EXPORT_PLUGIN, self::CORE_PLUGIN ), false );
 			$this->dropTables();
-			foreach ( array( 'swpp_settings', 'swpp_redirects', 'swpp_schema_version', 'swpp_full_rebuild_recommended', 'swpp_inventory_scan', 'swpp_e2e_migrated_by' ) as $option ) {
+			foreach ( array( 'swpp_settings', 'swpp_redirects', 'swpp_schema_version', 'swpp_full_rebuild_recommended', 'swpp_inventory_scan', 'swpp_e2e_migrated_by', 'swpp_speed_check' ) as $option ) {
 				delete_option( $option );
 			}
 
 			$this->removeArtifacts();
 			update_option( 'permalink_structure', '/index.php/%postname%/' );
+			update_option( 'show_on_front', 'posts' );
+			update_option( 'page_on_front', 0 );
 			flush_rewrite_rules();
 
 			$result = activate_plugin( self::CORE_PLUGIN, '', false, false );
@@ -168,6 +239,130 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 				);
 			}
 			$this->json( array( 'pages' => $pages ) );
+		}
+
+		/**
+		 * Creates a published page-builder template (not a visitor-facing page).
+		 *
+		 * @subcommand create-template
+		 */
+		public function create_template(): void {
+			$existing = get_page_by_path( 'swpp-e2e-header', OBJECT, 'elementor_library' );
+			if ( $existing instanceof \WP_Post ) {
+				wp_delete_post( $existing->ID, true );
+			}
+			$post_id = wp_insert_post(
+				array(
+					'post_type'    => 'elementor_library',
+					'post_status'  => 'publish',
+					'post_title'   => 'SWPP E2E Header Template',
+					'post_name'    => 'swpp-e2e-header',
+					'post_content' => '<header>Template</header>',
+				),
+				true
+			);
+			if ( is_wp_error( $post_id ) ) {
+				\WP_CLI::error( $post_id->get_error_message() );
+			}
+			$this->json(
+				array(
+					'id'  => (int) $post_id,
+					'url' => (string) get_permalink( (int) $post_id ),
+				)
+			);
+		}
+
+		/**
+		 * Uses a page as the static front page (0 restores the latest-posts home).
+		 *
+		 * @subcommand front-page
+		 */
+		public function front_page( array $args ): void {
+			$post_id = (int) ( $args[0] ?? 0 );
+			update_option( 'show_on_front', $post_id > 0 ? 'page' : 'posts' );
+			update_option( 'page_on_front', $post_id );
+			$this->json( array( 'front_page' => $post_id ) );
+		}
+
+		/**
+		 * Writes the optimizer fixture files and creates its page.
+		 *
+		 * @subcommand optimize-fixture
+		 */
+		public function optimize_fixture(): void {
+			$uploads = wp_upload_dir();
+			$dir     = trailingslashit( (string) $uploads['basedir'] );
+			$url     = trailingslashit( (string) $uploads['baseurl'] );
+			wp_mkdir_p( $dir . 'swpp-e2e' );
+			wp_mkdir_p( $dir . 'elementor/css' );
+
+			$source = ABSPATH . WPINC . '/images/w-logo-blue.png';
+			if ( ! is_file( $source ) ) {
+				\WP_CLI::error( 'Fixture image not found: ' . $source );
+			}
+			foreach ( array( 'img-1', 'img-2', 'img-3', 'img-4', 'img-5', 'hero' ) as $name ) {
+				copy( $source, $dir . 'swpp-e2e/' . $name . '.png' );
+			}
+			$files = array(
+				'elementor/css/swpp-e2e-bg.css' => '.elementor-element.elementor-element-e2ebg{background-image:url("../../swpp-e2e/hero.png");background-repeat:no-repeat;min-height:40px}',
+				'swpp-e2e/one.css'              => '.swpp-e2e-one{color:rgb(10, 20, 30)}',
+				'swpp-e2e/two.css'              => '.swpp-e2e-two{background-image:url(img-1.png);background-size:1px 1px}',
+				'swpp-e2e/three.css'            => '.swpp-e2e-three{margin-top:7px;padding-left:3px}',
+			);
+			foreach ( $files as $path => $css ) {
+				file_put_contents( $dir . $path, $css ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+			}
+
+			$existing = get_page_by_path( SWPP_E2E_OPTIMIZE_SLUG, OBJECT, 'page' );
+			if ( $existing instanceof \WP_Post ) {
+				wp_delete_post( $existing->ID, true );
+			}
+			$post_id = wp_insert_post(
+				array(
+					'post_type'    => 'page',
+					'post_status'  => 'publish',
+					'post_title'   => 'SWPP optimizer',
+					'post_name'    => SWPP_E2E_OPTIMIZE_SLUG,
+					'post_content' => '<p>Optimizer fixture</p>',
+				),
+				true
+			);
+			if ( is_wp_error( $post_id ) ) {
+				\WP_CLI::error( $post_id->get_error_message() );
+			}
+
+			$images = array();
+			for ( $i = 1; $i <= 5; ++$i ) {
+				$images[] = $url . 'swpp-e2e/img-' . $i . '.png';
+			}
+			$size = wp_getimagesize( $source );
+			$this->json(
+				array(
+					'id'         => (int) $post_id,
+					'url'        => (string) get_permalink( (int) $post_id ),
+					'images'     => $images,
+					'background' => $url . 'swpp-e2e/hero.png',
+					'width'      => is_array( $size ) ? (int) $size[0] : 0,
+					'height'     => is_array( $size ) ? (int) $size[1] : 0,
+				)
+			);
+		}
+
+		/**
+		 * Sets a Static Publisher speed option (optimize or combine_css) to 0 or 1.
+		 *
+		 * @subcommand set-option
+		 */
+		public function set_option( array $args ): void {
+			$key = (string) ( $args[0] ?? '' );
+			if ( ! in_array( $key, array( 'optimize', 'combine_css' ), true ) ) {
+				\WP_CLI::error( 'Unknown option.' );
+			}
+			$settings         = get_option( 'swpp_settings', array() );
+			$settings         = is_array( $settings ) ? $settings : array();
+			$settings[ $key ] = '1' === (string) ( $args[1] ?? '0' );
+			update_option( 'swpp_settings', $settings, false );
+			$this->json( array( $key => $settings[ $key ] ) );
 		}
 
 		/** Adds a password to a page through the normal update path. */

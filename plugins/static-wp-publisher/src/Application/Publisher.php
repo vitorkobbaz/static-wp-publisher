@@ -21,6 +21,7 @@ final class Publisher {
 		private readonly Renderer $renderer,
 		private readonly Storage $storage,
 		private readonly Database $database,
+		private readonly ?PageOptimizer $optimizer = null,
 	) {}
 
 	public function publish( string $url ): PublishResult {
@@ -63,7 +64,8 @@ final class Publisher {
 		}
 
 		try {
-			$file = $this->storage->write( $url, $response['body'] );
+			$body = null === $this->optimizer ? $response['body'] : $this->optimizer->optimize( $response['body'] );
+			$file = $this->storage->write( $url, $body );
 			$this->recordArtifact( $url, $file['relative'], $file['hash'], $file['bytes'], $response['status'] );
 			return new PublishResult( true, 'Published.', $file['relative'], $file['hash'] );
 		} catch ( Throwable $error ) {

@@ -33,6 +33,10 @@ final class Invalidator {
 			return;
 		}
 
+		if ( 'publish' === $old_status && ContentTypes::isTemplateType( $post->post_type ) ) {
+			$this->globalChanged();
+			return;
+		}
 		if ( 'publish' === $old_status ) {
 			$url = get_permalink( $post->ID );
 			if ( is_string( $url ) ) {
@@ -45,6 +49,12 @@ final class Invalidator {
 
 	public function postChanged( int $post_id, \WP_Post $post ): void {
 		if ( wp_is_post_revision( $post_id ) || wp_is_post_autosave( $post_id ) || 'publish' !== $post->post_status ) {
+			return;
+		}
+		if ( ContentTypes::isTemplateType( $post->post_type ) ) {
+			// Builder templates (headers, footers, popups) have no page of their own but
+			// change how every page renders.
+			$this->globalChanged();
 			return;
 		}
 		$url = get_permalink( $post_id );
@@ -67,6 +77,14 @@ final class Invalidator {
 	}
 
 	public function postDeleted( int $post_id ): void {
+		$type = get_post_type( $post_id );
+		if ( is_string( $type ) && ContentTypes::isTemplateType( $type ) ) {
+			// A template's own address is never published, and queueing it would publish
+			// whatever reuses that address next (for example a template recreated with the
+			// same slug).
+			$this->globalChanged();
+			return;
+		}
 		$url = get_permalink( $post_id );
 		if ( is_string( $url ) ) {
 			$this->queue->enqueue( $url, 'post_deleted' );
