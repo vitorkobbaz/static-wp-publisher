@@ -488,6 +488,41 @@
 }
 
 /* Secondary information stays out of the way. */
+.swpp-details__meta {
+	margin-left: var(--swpp-space-2);
+	color: var(--swpp-muted);
+	font-weight: 400;
+}
+
+.swpp-speed-options form {
+	max-width: 70ch;
+	margin-top: var(--swpp-space-3);
+}
+
+.swpp-speed-options fieldset {
+	display: grid;
+	gap: var(--swpp-space-4);
+	margin: 0 0 var(--swpp-space-4);
+}
+
+.swpp-option {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	gap: var(--swpp-space-2);
+	align-items: start;
+	color: var(--swpp-text);
+}
+
+.swpp-option input {
+	margin-top: 2px;
+}
+
+.swpp-option__help {
+	display: block;
+	margin-top: 2px;
+	color: var(--swpp-muted);
+}
+
 .swpp-admin .swpp-details {
 	margin-top: var(--swpp-space-8);
 	color: var(--swpp-muted);

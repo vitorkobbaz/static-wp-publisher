@@ -55,6 +55,25 @@ The Static Publisher screen is a read model (`StatusReport`) over the queue, the
 - **Row actions** accept a content ID (0 = home page), never a URL or path. The ID must resolve to published, visitor-facing content.
 - **Verification.** "Check delivery" performs an anonymous loopback request without cookies. It reports whether the `X-Static-WP-Publisher: HIT` header came back, with the HTTP status and timing.
 
+## Speed optimizations in static copies
+
+`Application\PageOptimizer` runs `Domain\HtmlOptimizer` on every rendered page before `Storage::write()`. WordPress output itself is never modified. The optimizer works on a token stream (comments, raw-text elements such as script, style and noscript, tags, text), so script and style bodies are never treated as markup. Any failure stores the page exactly as rendered, and an already optimized document (marker `data-swpp-opt`) is left alone.
+
+- **Optimize images and fonts** (`optimize`, on by default):
+  - At most two image preloads with `fetchpriority="high"` are inserted right after `<meta charset>`:
+    - the `<img>` WordPress marked `fetchpriority="high"` (never lazy);
+    - the CSS background of the first three Elementor sections that declare `background_background`. It is looked up in the page's own local `/elementor/css/` stylesheets, ignoring rules inside `@media` or `:hover`.
+  - Images after the first two get `loading="lazy"`, which the `swpp_eager_images` filter adjusts.
+  - Every image gets `decoding="async"`.
+  - Missing `width`/`height` are read from local files.
+  - Inline `@font-face` rules with `font-display: auto|block`, or with no value, get `swap`.
+- **Combine CSS files** (`combine_css`, experimental, off by default):
+  - Only runs of consecutive `<link rel="stylesheet">` in `<head>` are combined. The files must share the same `media`, be local, and contain no `@import`. Any inline style, script, other markup, or non-qualifying sheet ends a run, so the cascade order is unchanged.
+  - Relative `url()` references are made absolute, and `@charset` is dropped.
+  - Bundles are content-addressed files under `static-wp-publisher/site-N/assets/css/`, written atomically.
+- **File access:** `Infrastructure\LocalAssetResolver` reads only files under `content_url()` or `includes_url()`, with an allowed extension, whose resolved real path stays inside `wp-content` or `wp-includes`. It never uses a path from a request.
+- **Rebuilds:** changing the options in "Speed options" rebuilds every copy.
+
 ## Storage
 
 Default root: `wp-content/uploads/static-wp-publisher/<site-id>/`

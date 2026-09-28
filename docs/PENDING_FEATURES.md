@@ -33,6 +33,14 @@ This document separates the implemented Core + Individual Export MVP from work s
 - Expand dependency invalidation for theme-specific archives, widgets, global blocks, and plugin-defined routes.
 - Certify supported combinations of WooCommerce, WPML, Polylang, and TranslatePress.
 
+- Remaining PageSpeed items outside the safe optimizer:
+  - critical CSS inlining and deferring jQuery-dependent scripts;
+  - delaying third-party tags (Tag Manager/analytics);
+  - responsive `sizes` for images displayed smaller than their source;
+  - long cache lifetimes for versioned assets through web-server rules.
+- Sweep combined-CSS bundles that no static copy references any more. They are content-addressed and only accumulate when CSS changes.
+- Promote "Combine CSS files" from experimental after real-site feedback, possibly with an automated before/after visual comparison in the admin.
+
 ## Individual Export follow-up
 
 - Add incremental/differential package generation; the MVP currently produces complete directory and ZIP exports.

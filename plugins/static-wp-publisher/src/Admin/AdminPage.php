@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace SWPP\Core\Admin;
 
 use SWPP\Core\Application\Inventory;
+use SWPP\Core\Application\PageOptimizer;
 use SWPP\Core\Application\Publisher;
 use SWPP\Core\Application\Queue;
 use SWPP\Core\Application\StatusReport;
@@ -47,6 +48,7 @@ final class AdminPage {
 		add_action( 'admin_post_swpp_' . PageActions::VERIFY, array( $this, 'verify' ) );
 		add_action( 'admin_post_swpp_toggle_serving', array( $this, 'toggleServing' ) );
 		add_action( 'admin_post_swpp_speed_check', array( $this, 'speedCheck' ) );
+		add_action( 'admin_post_swpp_save_speed', array( $this, 'saveSpeedOptions' ) );
 	}
 
 	public function menu(): void {
@@ -175,6 +177,8 @@ final class AdminPage {
 				<?php $this->renderOtherProblems( $listing ); ?>
 			<?php endif; ?>
 
+			<?php $this->renderSpeedOptions(); ?>
+
 			<details class="swpp-details">
 				<summary><?php esc_html_e( 'Technical details', 'static-wp-publisher' ); ?></summary>
 				<?php $this->renderTechnical(); ?>
@@ -273,6 +277,26 @@ final class AdminPage {
 			$this->redirect( '' );
 		}
 		$this->redirect( $result['message'], $result['level'] );
+	}
+
+	/** Saves the speed options and rebuilds every copy when they change. */
+	public function saveSpeedOptions(): void {
+		$this->authorize( 'swpp_save_speed' );
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- verified in authorize().
+		$optimize = ! empty( $_POST['optimize'] );
+		$combine  = ! empty( $_POST['combine_css'] );
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+		$before                  = PageOptimizer::settings();
+		$settings                = get_option( 'swpp_settings', array() );
+		$settings                = is_array( $settings ) ? $settings : array();
+		$settings['optimize']    = $optimize;
+		$settings['combine_css'] = $combine;
+		update_option( 'swpp_settings', $settings, false );
+		if ( $before['optimize'] === $optimize && $before['combine_css'] === $combine ) {
+			$this->redirect( __( 'Speed options unchanged.', 'static-wp-publisher' ), 'info' );
+		}
+		update_option( 'swpp_full_rebuild_recommended', time(), false );
+		$this->redirect( __( 'Speed options saved. Every static copy is being rebuilt in the background.', 'static-wp-publisher' ) );
 	}
 
 	public function toggleServing(): void {
@@ -520,6 +544,44 @@ final class AdminPage {
 				<?php endforeach; ?>
 			</tbody>
 		</table>
+		<?php
+	}
+
+	/** What the optimizer may change in static copies; the WordPress page itself is never modified. */
+	private function renderSpeedOptions(): void {
+		$options = PageOptimizer::settings();
+		$summary = sprintf(
+			/* translators: 1: state of image and font optimization, 2: state of CSS combining. */
+			__( 'Images and fonts: %1$s · Combine CSS: %2$s', 'static-wp-publisher' ),
+			$options['optimize'] ? __( 'on', 'static-wp-publisher' ) : __( 'off', 'static-wp-publisher' ),
+			$options['combine_css'] ? __( 'on', 'static-wp-publisher' ) : __( 'off', 'static-wp-publisher' )
+		);
+		?>
+		<details class="swpp-details swpp-speed-options" data-swpp-speed-options>
+			<summary><?php esc_html_e( 'Speed options', 'static-wp-publisher' ); ?> <span class="swpp-details__meta"><?php echo esc_html( $summary ); ?></span></summary>
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+				<input type="hidden" name="action" value="swpp_save_speed">
+				<?php wp_nonce_field( 'swpp_save_speed' ); ?>
+				<p class="swpp-intro"><?php esc_html_e( 'These changes apply only to the static copies visitors receive. Your WordPress pages are never modified.', 'static-wp-publisher' ); ?></p>
+				<fieldset>
+					<label class="swpp-option">
+						<input type="checkbox" name="optimize" value="1" <?php checked( $options['optimize'] ); ?>>
+						<span>
+							<strong><?php esc_html_e( 'Optimize images and fonts', 'static-wp-publisher' ); ?></strong>
+							<span class="swpp-option__help"><?php esc_html_e( 'Loads the main image first, delays images further down the page, adds missing image sizes to prevent layout jumps, and shows text while custom fonts load.', 'static-wp-publisher' ); ?></span>
+						</span>
+					</label>
+					<label class="swpp-option">
+						<input type="checkbox" name="combine_css" value="1" <?php checked( $options['combine_css'] ); ?>>
+						<span>
+							<strong><?php esc_html_e( 'Combine CSS files (experimental)', 'static-wp-publisher' ); ?></strong>
+							<span class="swpp-option__help"><?php esc_html_e( 'Joins style files that load one after another into a single file, so the page can appear sooner. Check a few pages after turning it on. If anything looks different, turn it off: every copy is rebuilt automatically.', 'static-wp-publisher' ); ?></span>
+						</span>
+					</label>
+				</fieldset>
+				<?php submit_button( __( 'Save and rebuild copies', 'static-wp-publisher' ), 'secondary', 'submit', false ); ?>
+			</form>
+		</details>
 		<?php
 	}
 

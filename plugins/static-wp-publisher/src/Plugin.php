@@ -12,6 +12,7 @@ namespace SWPP\Core;
 use SWPP\Core\Admin\AdminPage;
 use SWPP\Core\Application\Invalidator;
 use SWPP\Core\Application\Inventory;
+use SWPP\Core\Application\PageOptimizer;
 use SWPP\Core\Application\Publisher;
 use SWPP\Core\Application\Queue;
 use SWPP\Core\Application\StatusReport;
@@ -20,6 +21,7 @@ use SWPP\Core\Cli\Commands;
 use SWPP\Core\Http\RestController;
 use SWPP\Core\Infrastructure\Database;
 use SWPP\Core\Infrastructure\CronSchedule;
+use SWPP\Core\Infrastructure\LocalAssetResolver;
 use SWPP\Core\Infrastructure\Renderer;
 use SWPP\Core\Infrastructure\Storage;
 use SWPP\Core\Infrastructure\Verifier;
@@ -43,7 +45,7 @@ final class Plugin {
 		$database->maybeUpgrade();
 		$storage   = new Storage();
 		$queue     = new Queue( $database );
-		$publisher = new Publisher( new Renderer(), $storage, $database );
+		$publisher = new Publisher( new Renderer(), $storage, $database, new PageOptimizer( new LocalAssetResolver( $storage ) ) );
 		$inventory = new Inventory( $queue );
 
 		add_filter( 'cron_schedules', array( CronSchedule::class, 'add' ) );
@@ -66,7 +68,8 @@ final class Plugin {
 	public function processQueue(): void {
 		$database  = new Database();
 		$queue     = new Queue( $database );
-		$publisher = new Publisher( new Renderer(), new Storage(), $database );
+		$storage   = new Storage();
+		$publisher = new Publisher( new Renderer(), $storage, $database, new PageOptimizer( new LocalAssetResolver( $storage ) ) );
 
 		( new Worker( $queue, $publisher ) )->runPass( new Inventory( $queue ), Worker::requestBudget() );
 	}
