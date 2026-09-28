@@ -9,7 +9,7 @@ export default defineConfig({
     globalSetup: "./tests/e2e/global-setup.ts",
     globalTeardown: "./tests/e2e/global-teardown.ts",
     use: {
-        baseURL: process.env.WP_E2E_BASE_URL ?? "http://localhost:8889",
+        baseURL: process.env.WP_E2E_BASE_URL ?? "http://localhost",
         trace: "retain-on-failure",
         screenshot: "only-on-failure",
         video: "retain-on-failure",

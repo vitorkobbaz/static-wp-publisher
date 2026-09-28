@@ -22,22 +22,24 @@ export default async function globalSetup(): Promise<void> {
         );
     }
 
-    try {
-        runWpEnv(["start"], { timeout: 10 * 60_000 });
-        mkdirSync(path.dirname(wpEnvStartedMarker), { recursive: true });
-        writeFileSync(
-            wpEnvStartedMarker,
-            `${new Date().toISOString()}\n`,
-            "utf8",
-        );
-    } catch (error) {
-        throw new Error(
-            "wp-env could not start the WordPress test environment. Run `npx wp-env logs --environment=tests` for diagnostics.\n" +
-                String(error),
-        );
+    if (!process.env.CI) {
+        try {
+            runWpEnv(["start"], { timeout: 10 * 60_000 });
+            mkdirSync(path.dirname(wpEnvStartedMarker), { recursive: true });
+            writeFileSync(
+                wpEnvStartedMarker,
+                `${new Date().toISOString()}\n`,
+                "utf8",
+            );
+        } catch (error) {
+            throw new Error(
+                "wp-env could not start the WordPress test environment. Run `npx wp-env logs --environment=tests --no-watch` for diagnostics.\n" +
+                    String(error),
+            );
+        }
     }
 
-    const baseURL = process.env.WP_E2E_BASE_URL ?? "http://localhost:8889";
+    const baseURL = process.env.WP_E2E_BASE_URL ?? "http://localhost";
     const api = await request.newContext({ baseURL });
     try {
         const response = await api.get("/wp-login.php");

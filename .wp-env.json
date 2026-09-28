@@ -12,10 +12,15 @@
   },
   "env": {
     "tests": {
+      "port": 80,
       "plugins": [
         "./plugins/static-wp-publisher",
+        "./plugins/static-wp-publisher-export",
         "./tests/e2e/fixtures/swpp-e2e-support"
-      ]
+      ],
+      "config": {
+        "SWPP_E2E_TOKEN": "static-wp-publisher-e2e"
+      }
     }
   }
 }

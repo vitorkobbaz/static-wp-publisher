@@ -9,20 +9,29 @@ declare(strict_types=1);
 
 namespace SWPP\Export\Admin;
 
+use RuntimeException;
 use SWPP\Export\Infrastructure\ExportPathGuard;
+use SWPP\Export\Infrastructure\ExportStorage;
 
 final class ExportDownload {
-	private const ACTION = 'swpp_download_export';
+	private const ACTION        = 'swpp_download_export';
 	private const TOKEN_PATTERN = '/\A[a-f0-9]{32}\z/';
 
-	public function __construct( private readonly ExportPathGuard $paths ) {}
+	public function __construct(
+		private readonly ExportPathGuard $paths,
+		private readonly ExportStorage $exports,
+	) {}
 
 	public function register(): void {
 		add_action( 'admin_post_' . self::ACTION, array( $this, 'handle' ) );
 	}
 
 	public function authorize( string $archive, int $userId ): ?string {
-		$archive = $this->paths->resolve( $this->exportsRoot(), $archive );
+		try {
+			$archive = $this->paths->resolve( $this->exports->root(), $archive );
+		} catch ( RuntimeException ) {
+			return null;
+		}
 		if ( null === $archive || $userId < 1 ) {
 			return null;
 		}
@@ -68,7 +77,12 @@ final class ExportDownload {
 		$user_id = get_current_user_id();
 		$key     = $this->transientKey( $token, $user_id );
 		$stored  = get_transient( $key );
-		$archive = is_string( $stored ) ? $this->paths->resolve( $this->exportsRoot(), $stored ) : null;
+		$archive = null;
+		try {
+			$archive = is_string( $stored ) ? $this->paths->resolve( $this->exports->root(), $stored ) : null;
+		} catch ( RuntimeException $error ) {
+			wp_die( esc_html( $error->getMessage() ), '', array( 'response' => 500 ) );
+		}
 		if ( null === $archive ) {
 			wp_die( esc_html__( 'This export download is unavailable or has expired.', 'static-wp-publisher-export' ), '', array( 'response' => 404 ) );
 		}
@@ -83,7 +97,9 @@ final class ExportDownload {
 		}
 
 		while ( ob_get_level() > 0 ) {
-			ob_end_clean();
+			if ( ! ob_end_clean() ) {
+				break;
+			}
 		}
 		nocache_headers();
 		header( 'Content-Type: application/zip' );
@@ -107,17 +123,11 @@ final class ExportDownload {
 		}
 		fclose( $stream );
 
-		if ( $complete ) {
-			delete_transient( $key );
-		} else {
+		// Keep the one-hour authorization available for a retry; storage cleanup is delayed.
+		if ( ! $complete ) {
 			error_log( 'Static WP Publisher Export: archive streaming did not complete.' ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 		}
 		exit;
-	}
-
-	private function exportsRoot(): string {
-		$uploads = wp_upload_dir();
-		return trailingslashit( (string) ( $uploads['basedir'] ?? '' ) ) . 'static-wp-publisher/exports';
 	}
 
 	private function transientKey( string $token, int $userId ): string {

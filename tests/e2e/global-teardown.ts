@@ -2,6 +2,9 @@ import { existsSync, unlinkSync } from "node:fs";
 import { runWpEnv, wpEnvStartedMarker } from "./support/process";
 
 export default function globalTeardown(): void {
+    if (process.env.CI) {
+        return;
+    }
     if (!existsSync(wpEnvStartedMarker)) {
         return;
     }

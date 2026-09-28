@@ -9,13 +9,16 @@
     "test:js": "wp-scripts test-unit-js --passWithNoTests",
     "test:e2e": "playwright test",
     "test:e2e:debug": "playwright test --debug",
+    "typecheck:e2e": "tsc --noEmit --target ES2022 --module NodeNext --moduleResolution NodeNext --esModuleInterop --strict --types node playwright.config.ts tests/e2e/global-setup.ts tests/e2e/global-teardown.ts tests/e2e/support/process.ts tests/e2e/specs/activation-publication.spec.ts",
     "lint:js": "wp-scripts lint-js \"plugins/**/*.js\" --no-error-on-unmatched-pattern",
     "packages-update": "wp-scripts packages-update"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",
+    "@types/adm-zip": "^0.5.7",
     "@wordpress/env": "^10.33.0",
     "@wordpress/scripts": "^30.25.0",
+    "adm-zip": "^0.5.18",
     "typescript": "~5.9.3"
   }
 }

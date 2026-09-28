@@ -2,7 +2,7 @@ name: WordPress E2E
 
 on:
   push:
-    branches: [main, "feature/**", "codex/**"]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -58,7 +58,7 @@ jobs:
         if: failure()
         run: |
           mkdir -p e2e-artifacts
-          npx wp-env logs > e2e-artifacts/wp-env.log 2>&1 || true
+          npx wp-env logs --environment=tests --no-watch > e2e-artifacts/wp-env-tests.log 2>&1 || true
           docker ps -a > e2e-artifacts/docker-containers.txt 2>&1 || true
           docker info > e2e-artifacts/docker-info.txt 2>&1 || true
 

@@ -16,14 +16,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
 	final class SWPP_E2E_Command {
-		private const CORE_PLUGIN = 'static-wp-publisher/static-wp-publisher.php';
+		private const CORE_PLUGIN   = 'static-wp-publisher/static-wp-publisher.php';
+		private const EXPORT_PLUGIN = 'static-wp-publisher-export/static-wp-publisher-export.php';
 
 		/** Resets Core and performs a clean activation. */
 		public function reset(): void {
 			global $wpdb;
 			require_once ABSPATH . 'wp-admin/includes/plugin.php';
 
-			deactivate_plugins( self::CORE_PLUGIN, true );
+			deactivate_plugins( array( self::EXPORT_PLUGIN, self::CORE_PLUGIN ), false );
 			foreach ( array( 'jobs', 'builds', 'artifacts' ) as $suffix ) {
 				$table = $wpdb->prefix . 'swpp_' . $suffix;
 				$wpdb->query( "DROP TABLE IF EXISTS `{$table}`" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -36,7 +37,11 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			update_option( 'permalink_structure', '/%postname%/' );
 			flush_rewrite_rules();
 
-			$result = activate_plugin( self::CORE_PLUGIN, '', false, true );
+			$result = activate_plugin( self::CORE_PLUGIN, '', false, false );
+			if ( is_wp_error( $result ) ) {
+				\WP_CLI::error( $result->get_error_message() );
+			}
+			$result = activate_plugin( self::EXPORT_PLUGIN, '', false, false );
 			if ( is_wp_error( $result ) ) {
 				\WP_CLI::error( $result->get_error_message() );
 			}
@@ -62,13 +67,14 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 
 			$this->json(
 				array(
-					'core_active' => is_plugin_active( self::CORE_PLUGIN ),
-					'schema'      => (int) get_option( 'swpp_schema_version', 0 ),
-					'tables'      => $tables,
-					'active_index' => null !== $active_index,
-					'cron'         => false !== wp_next_scheduled( 'swpp_process_queue' ),
-					'enabled'      => ! empty( $settings['enabled'] ),
-					'directories'  => array(
+					'core_active'   => is_plugin_active( self::CORE_PLUGIN ),
+					'export_active' => is_plugin_active( self::EXPORT_PLUGIN ),
+					'schema'        => (int) get_option( 'swpp_schema_version', 0 ),
+					'tables'        => $tables,
+					'active_index'  => null !== $active_index,
+					'cron'          => false !== wp_next_scheduled( 'swpp_process_queue' ),
+					'enabled'       => ! empty( $settings['enabled'] ),
+					'directories'   => array(
 						'published' => is_dir( $root . '/published' ),
 						'versions'  => is_dir( $root . '/versions' ),
 						'tmp'       => is_dir( $root . '/tmp' ),
@@ -191,4 +197,27 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 	}
 
 	\WP_CLI::add_command( 'swpp-e2e', SWPP_E2E_Command::class );
+}
+
+if ( defined( 'SWPP_E2E_TOKEN' ) && is_string( SWPP_E2E_TOKEN ) && '' !== SWPP_E2E_TOKEN ) {
+	add_action(
+		'rest_api_init',
+		static function (): void {
+			register_rest_route(
+				'swpp-e2e/v1',
+				'/process',
+				array(
+					'methods'             => 'POST',
+					'permission_callback' => static function ( \WP_REST_Request $request ): bool {
+						$provided = (string) $request->get_header( 'X-SWPP-E2E' );
+						return hash_equals( SWPP_E2E_TOKEN, $provided );
+					},
+					'callback'            => static function (): \WP_REST_Response {
+						do_action( 'swpp_process_queue' );
+						return new \WP_REST_Response( array( 'processed' => true ) );
+					},
+				)
+			);
+		}
+	);
 }

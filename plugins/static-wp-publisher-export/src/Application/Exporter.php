@@ -17,26 +17,29 @@ use Throwable;
 use SWPP\Core\Infrastructure\Storage;
 use SWPP\Export\Domain\ExportRequest;
 use SWPP\Export\Domain\ExportResult;
-use SWPP\Export\Infrastructure\ZipPackager;
 use SWPP\Export\Infrastructure\AssetCollector;
+use SWPP\Export\Infrastructure\ExportStorage;
+use SWPP\Export\Infrastructure\ZipPackager;
 use SWPP\Export\UrlRewriter;
 
 final class Exporter {
-	public function __construct( private readonly UrlRewriter $rewriter, private readonly ZipPackager $zip, private readonly AssetCollector $assets ) {}
+	public function __construct(
+		private readonly UrlRewriter $rewriter,
+		private readonly ZipPackager $zip,
+		private readonly AssetCollector $assets,
+		private readonly ExportStorage $exports,
+	) {}
 
 	public function export( ExportRequest $request ): ExportResult {
+		$export_root = null;
 		try {
 			$storage = new Storage();
 			$source  = $storage->publishedRoot();
 			if ( ! is_dir( $source ) ) {
 				throw new RuntimeException( 'No published static directory exists yet.' );
 			}
-			$uploads = wp_upload_dir();
-			if ( ! empty( $uploads['error'] ) ) {
-				throw new RuntimeException( (string) $uploads['error'] );
-			}
 			$id          = gmdate( 'Ymd-His' ) . '-' . wp_generate_password( 6, false, false );
-			$export_root = trailingslashit( (string) $uploads['basedir'] ) . 'static-wp-publisher/exports/' . $id;
+			$export_root = trailingslashit( $this->exports->root() ) . $id;
 			if ( ! wp_mkdir_p( $export_root ) ) {
 				throw new RuntimeException( 'Unable to create export directory.' );
 			}
@@ -57,6 +60,14 @@ final class Exporter {
 
 			return new ExportResult( true, 'Export completed.', $export_root, $zip_path, $warnings );
 		} catch ( Throwable $error ) {
+			if ( is_string( $export_root ) ) {
+				try {
+					$this->exports->deleteArtifacts( dirname( $export_root ) . '/' . basename( $export_root ) . '.zip' );
+					$this->exports->discardDirectory( $export_root );
+				} catch ( Throwable ) {
+					// Preserve the original export error; stale partials are purged by retention.
+				}
+			}
 			return new ExportResult( false, $error->getMessage() );
 		}
 	}
