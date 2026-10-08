@@ -9,11 +9,16 @@ declare(strict_types=1);
 
 namespace SWPP\Core\Http;
 
+use SWPP\Core\Admin\PageActions;
+use SWPP\Core\Admin\StatusPresenter;
 use SWPP\Core\Application\Inventory;
 use SWPP\Core\Application\Publisher;
 use SWPP\Core\Application\Queue;
+use SWPP\Core\Application\StatusReport;
 use SWPP\Core\Application\Worker;
+use SWPP\Core\Infrastructure\SpeedCheck;
 use SWPP\Core\Infrastructure\Storage;
+use SWPP\Core\Infrastructure\Verifier;
 use WP_REST_Request;
 use WP_REST_Response;
 
@@ -23,6 +28,8 @@ final class RestController {
 		private readonly Publisher $publisher,
 		private readonly Inventory $inventory,
 		private readonly Storage $storage,
+		private readonly StatusReport $report,
+		private readonly Verifier $verifier,
 	) {}
 
 	public function register(): void {
@@ -31,6 +38,40 @@ final class RestController {
 
 	public function routes(): void {
 		$permission = static fn (): bool => current_user_can( 'manage_options' );
+		register_rest_route(
+			'swpp/v1',
+			'/speed-check',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'speedCheck' ),
+				'permission_callback' => $permission,
+				'args'                => array(
+					'post_id' => array(
+						'type'    => 'integer',
+						'minimum' => 0,
+						'default' => 0,
+					),
+				),
+			)
+		);
+		register_rest_route(
+			'swpp/v1',
+			'/fix',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'fix' ),
+				'permission_callback' => $permission,
+			)
+		);
+		register_rest_route(
+			'swpp/v1',
+			'/pages/(?P<id>\d+)/(?P<operation>regenerate|verify)',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'pageAction' ),
+				'permission_callback' => $permission,
+			)
+		);
 		register_rest_route(
 			'swpp/v1',
 			'/status',
@@ -84,6 +125,58 @@ final class RestController {
 				'published_root' => $this->storage->publishedRoot(),
 				'enabled'        => ! empty( get_option( 'swpp_settings', array() )['enabled'] ),
 				'next_worker'    => false !== $next_worker ? $next_worker : null,
+				'latest'         => $this->queue->latestCounts(),
+			)
+		);
+	}
+
+	/** Measures the home page as static HTML and through WordPress. */
+	public function speedCheck( WP_REST_Request $request ): WP_REST_Response {
+		$row = $this->report->rowFor( absint( $request->get_param( 'post_id' ) ) );
+		if ( null === $row ) {
+			return new WP_REST_Response( array( 'message' => __( 'That page is not public content of this site.', 'static-wp-publisher' ) ), 404 );
+		}
+		$result = ( new SpeedCheck( $this->verifier ) )->measure( $row['url'], $row['title'], $row['post_id'] );
+		return new WP_REST_Response(
+			array(
+				'result' => $result,
+				'html'   => StatusPresenter::forCurrentSettings()->speedHtml( $result ),
+			)
+		);
+	}
+
+	/** Queues every page that has no static copy or needs attention, for the worker loop. */
+	public function fix(): WP_REST_Response {
+		$queued = 0;
+		foreach ( $this->report->listing( 'all', '', 1, 10 )['fix'] as $url ) {
+			$queued += $this->queue->enqueue( $url, 'manual' ) ? 1 : 0;
+		}
+		return new WP_REST_Response( array( 'queued' => $queued ), 202 );
+	}
+
+	/**
+	 * Regenerates or verifies one page (content id, 0 = home) and returns its refreshed row.
+	 */
+	public function pageAction( WP_REST_Request $request ): WP_REST_Response {
+		$post_id = absint( $request->get_param( 'id' ) );
+		$action  = PageActions::VERIFY === $request->get_param( 'operation' ) ? PageActions::VERIFY : PageActions::REGENERATE;
+		$result  = ( new PageActions( new Worker( $this->queue, $this->publisher ), $this->report, $this->verifier ) )->run( $action, $post_id );
+		if ( null === $result ) {
+			return new WP_REST_Response( array( 'message' => __( 'That page is not public content of this site.', 'static-wp-publisher' ) ), 404 );
+		}
+
+		$row       = $this->report->rowFor( $post_id );
+		$presenter = StatusPresenter::forCurrentSettings();
+		return new WP_REST_Response(
+			array_merge(
+				$result,
+				array(
+					'row' => null === $row ? null : array(
+						'group'   => $row['status']->group(),
+						'status'  => $presenter->statusHtml( $row['status'] ),
+						'updated' => $presenter->timeHtml( $row['published_at'] ),
+					),
+				)
 			)
 		);
 	}
@@ -105,7 +198,7 @@ final class RestController {
 	}
 
 	public function process(): WP_REST_Response {
-		$report = ( new Worker( $this->queue, $this->publisher ) )->run( Worker::requestBudget() );
+		$report = ( new Worker( $this->queue, $this->publisher ) )->runPass( $this->inventory, Worker::requestBudget() );
 		return new WP_REST_Response(
 			array(
 				'processed'     => $report->processed,
@@ -115,6 +208,7 @@ final class RestController {
 				'last_error'    => $report->lastError,
 				'pending'       => $this->queue->counts()['pending'],
 				'next_retry_at' => $this->queue->nextRetryAt(),
+				'scan_active'   => $this->inventory->scanInProgress(),
 			)
 		);
 	}

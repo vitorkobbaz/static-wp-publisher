@@ -27,3 +27,4 @@ delete_option( 'swpp_redirects' );
 delete_option( 'swpp_schema_version' );
 delete_option( 'swpp_full_rebuild_recommended' );
 delete_option( 'swpp_inventory_scan' );
+delete_option( 'swpp_speed_check' );

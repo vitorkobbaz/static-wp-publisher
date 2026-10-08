@@ -99,6 +99,36 @@ final class Storage {
 		);
 	}
 
+	/**
+	 * Stores a generated asset (a combined stylesheet) under assets/<kind>/ and returns
+	 * its public URL. Names are content hashes, so an existing file is already correct.
+	 */
+	public function writeAsset( string $kind, string $name, string $contents ): string {
+		if ( 1 !== preg_match( '~^[a-z]{2,10}$~', $kind ) || 1 !== preg_match( '~^[a-f0-9]{16}\.(css)$~', $name ) ) {
+			throw new RuntimeException( 'Invalid static asset name.' );
+		}
+		$this->ensureStructure();
+		$directory = $this->root() . '/assets/' . $kind;
+		if ( ! is_dir( $directory ) && ! wp_mkdir_p( $directory ) ) {
+			throw new RuntimeException( 'Unable to create the static asset directory.' );
+		}
+		$target = $directory . '/' . $name;
+		if ( ! is_file( $target ) ) {
+			$temp = $this->root() . '/tmp/' . wp_generate_uuid4() . '.tmp';
+			if ( false === file_put_contents( $temp, $contents, LOCK_EX ) ) {
+				throw new RuntimeException( 'Unable to write temporary asset.' );
+			}
+			if ( ! rename( $temp, $target ) ) {
+				@unlink( $temp ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged,WordPress.WP.AlternativeFunctions.unlink_unlink
+				throw new RuntimeException( 'Unable to publish asset.' );
+			}
+		}
+
+		$uploads = wp_upload_dir();
+		$base    = set_url_scheme( trailingslashit( (string) $uploads['baseurl'] ), (string) wp_parse_url( home_url( '/' ), PHP_URL_SCHEME ) );
+		return $base . 'static-wp-publisher/site-' . get_current_blog_id() . '/assets/' . $kind . '/' . $name;
+	}
+
 	private function protect( string $directory ): void {
 		$rules = "Options -Indexes\n<FilesMatch \".*\">\nRequire all denied\n</FilesMatch>\n";
 		if ( ! is_file( $directory . '/.htaccess' ) ) {

@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace SWPP\Core\Application;
 
+use SWPP\Core\Domain\PublishResult;
+use SWPP\Core\Domain\QueueJob;
 use SWPP\Core\Domain\WorkerBudget;
 use SWPP\Core\Domain\WorkerReport;
 
@@ -25,6 +27,20 @@ final class Worker {
 			(int) apply_filters( 'swpp_worker_time_budget', WorkerBudget::DEFAULT_SECONDS ),
 			(int) ini_get( 'max_execution_time' )
 		);
+	}
+
+	/**
+	 * One complete worker pass: continues any inventory scan, then drains due jobs.
+	 */
+	public function runPass( Inventory $inventory, WorkerBudget $budget ): WorkerReport {
+		if ( false !== get_option( 'swpp_full_rebuild_recommended', false ) ) {
+			// Delete first so a concurrent content change can safely request another sweep.
+			delete_option( 'swpp_full_rebuild_recommended' );
+			$inventory->enqueueAll();
+		} else {
+			$inventory->enqueueBatch();
+		}
+		return $this->run( $budget );
 	}
 
 	public function run( WorkerBudget $budget ): WorkerReport {
@@ -44,20 +60,39 @@ final class Worker {
 				break;
 			}
 
-			$result = $this->publisher->publish( $job->url );
+			$result = $this->handle( $job );
 			if ( $result->success ) {
-				$this->queue->complete( $job );
 				++$succeeded;
 			} elseif ( ! $result->retryable ) {
-				$this->queue->skip( $job, $result->message );
 				++$skipped;
 			} else {
-				$this->queue->fail( $job, $result->message );
 				++$failed;
 				$error = $job->url . ': ' . $result->message;
 			}
 		}
 
 		return new WorkerReport( $succeeded + $failed + $skipped, $succeeded, $failed, $error, $skipped );
+	}
+
+	/**
+	 * Regenerates one URL now, through the queue so its state stays consistent.
+	 * Returns null when another worker is already generating it.
+	 */
+	public function runOne( string $url ): ?PublishResult {
+		$this->queue->enqueue( $url, 'manual' );
+		$job = $this->queue->claimForUrl( $url );
+		return null === $job ? null : $this->handle( $job );
+	}
+
+	private function handle( QueueJob $job ): PublishResult {
+		$result = $this->publisher->publish( $job->url );
+		if ( $result->success ) {
+			$this->queue->complete( $job );
+		} elseif ( ! $result->retryable ) {
+			$this->queue->skip( $job, $result->message );
+		} else {
+			$this->queue->fail( $job, $result->message );
+		}
+		return $result;
 	}
 }

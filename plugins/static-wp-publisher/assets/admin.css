@@ -1,0 +1,571 @@
+/*
+ * Static WP Publisher — administration screen.
+ * Native wp-admin vocabulary: system font, the admin colour scheme as
+ * the only accent, WordPress status colours for meaning, 4px grid.
+ */
+
+.swpp-admin {
+	--swpp-accent: var(--wp-admin-theme-color, #2271b1);
+	--swpp-accent-dark: var(--wp-admin-theme-color-darker-10, #135e96);
+	--swpp-text: #1d2327;
+	--swpp-muted: #50575e;
+	--swpp-line: #dcdcde;
+	--swpp-frame: #c3c4c7;
+	--swpp-surface: #fff;
+	--swpp-good: #00a32a;
+	--swpp-good-text: #007017;
+	--swpp-info: var(--swpp-accent);
+	--swpp-warn: #dba617;
+	--swpp-warn-text: #7c5e00;
+	--swpp-bad: #d63638;
+	--swpp-bad-text: #b32d2e;
+	--swpp-neutral: #8c8f94;
+	--swpp-empty: #dcdcde;
+	--swpp-space-1: 4px;
+	--swpp-space-2: 8px;
+	--swpp-space-3: 12px;
+	--swpp-space-4: 16px;
+	--swpp-space-6: 24px;
+	--swpp-space-8: 32px;
+}
+
+.swpp-num {
+	font-variant-numeric: tabular-nums;
+}
+
+.swpp-inline-form {
+	display: inline-flex;
+	margin: 0;
+}
+
+/* Title row like core list screens: heading, then its actions. */
+.swpp-title {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--swpp-space-2);
+	align-items: center;
+}
+
+.swpp-admin .swpp-title .wp-heading-inline {
+	margin-right: var(--swpp-space-2);
+}
+
+.swpp-admin .swpp-title .page-title-action {
+	top: 0;
+	margin: 0;
+	cursor: pointer;
+}
+
+.swpp-admin .swpp-title-action--primary,
+.swpp-admin .swpp-summary__cta .page-title-action {
+	border-color: var(--swpp-accent);
+	background: var(--swpp-accent);
+	color: #fff;
+}
+
+.swpp-admin .swpp-title-action--primary:hover,
+.swpp-admin .swpp-summary__cta .page-title-action:hover {
+	border-color: var(--swpp-accent-dark);
+	background: var(--swpp-accent-dark);
+	color: #fff;
+}
+
+.swpp-intro {
+	max-width: 70ch;
+	margin: var(--swpp-space-2) 0 var(--swpp-space-1);
+	color: var(--swpp-muted);
+}
+
+/* Delivery state and its control, on one quiet line. */
+.swpp-delivery {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--swpp-space-3);
+	align-items: center;
+	margin: 0 0 var(--swpp-space-4);
+}
+
+.swpp-delivery__state {
+	display: inline-flex;
+	gap: var(--swpp-space-2);
+	align-items: center;
+	color: var(--swpp-text);
+	font-weight: 600;
+}
+
+.swpp-admin .notice.swpp-paused,
+.swpp-admin .notice.swpp-exposed {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--swpp-space-2) var(--swpp-space-4);
+	align-items: center;
+	padding-top: var(--swpp-space-2);
+	padding-bottom: var(--swpp-space-2);
+}
+
+/* Dots and tones shared by state labels, the meter, and the bars. */
+.swpp-dot {
+	display: inline-block;
+	flex: none;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--swpp-neutral);
+}
+
+.swpp-tone--good {
+	background: var(--swpp-good);
+}
+
+.swpp-tone--info {
+	background: var(--swpp-info);
+}
+
+.swpp-tone--bad {
+	background: var(--swpp-bad);
+}
+
+.swpp-tone--neutral {
+	background: var(--swpp-neutral);
+}
+
+.swpp-tone--empty {
+	background: repeating-linear-gradient(135deg, var(--swpp-empty) 0 4px, #f0f0f1 4px 8px);
+}
+
+/* Summary: one panel, coverage leads, the page test supports. */
+.swpp-admin .swpp-summary {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(300px, 1fr);
+	margin: 0 0 var(--swpp-space-4);
+	border: 1px solid var(--swpp-frame);
+	border-radius: 4px;
+	background: var(--swpp-surface);
+	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+.swpp-admin .swpp-summary--intro {
+	grid-template-columns: minmax(0, 1fr);
+}
+
+.swpp-summary__coverage,
+.swpp-summary__speed {
+	display: flex;
+	flex-direction: column;
+	gap: var(--swpp-space-3);
+	min-width: 0;
+	padding: var(--swpp-space-6);
+}
+
+.swpp-summary__speed {
+	border-left: 1px solid var(--swpp-line);
+}
+
+.swpp-admin .swpp-summary__headline {
+	margin: 0;
+	color: var(--swpp-text);
+	font-size: 20px;
+	font-weight: 600;
+	line-height: 1.3;
+	font-variant-numeric: tabular-nums;
+	text-wrap: balance;
+}
+
+.swpp-summary__note {
+	max-width: 70ch;
+	margin: 0;
+	color: var(--swpp-muted);
+	line-height: 1.7;
+}
+
+.swpp-summary__note a {
+	margin-right: var(--swpp-space-1);
+}
+
+.swpp-summary__cta {
+	margin-top: var(--swpp-space-2);
+}
+
+.swpp-admin .swpp-summary__label {
+	margin: 0;
+	color: var(--swpp-text);
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.swpp-meter {
+	display: flex;
+	gap: 2px;
+	height: 10px;
+	overflow: hidden;
+	border-radius: 999px;
+	background: var(--swpp-surface);
+}
+
+.swpp-meter__part {
+	min-width: 6px;
+}
+
+/* Page test: verdict, page, bars, picker, method. */
+.swpp-speed {
+	display: flex;
+	flex-direction: column;
+	gap: var(--swpp-space-2);
+}
+
+.swpp-speed p {
+	margin: 0;
+}
+
+.swpp-speed__verdict {
+	color: var(--swpp-text);
+	font-size: 16px;
+	font-weight: 600;
+	line-height: 1.4;
+	font-variant-numeric: tabular-nums;
+}
+
+.swpp-speed__page,
+.swpp-speed__lead {
+	color: var(--swpp-muted);
+}
+
+.swpp-bars {
+	display: grid;
+	gap: var(--swpp-space-2);
+	margin: var(--swpp-space-1) 0 0;
+}
+
+.swpp-bar {
+	display: grid;
+	grid-template-columns: 88px minmax(0, 1fr);
+	gap: var(--swpp-space-3);
+	align-items: center;
+}
+
+.swpp-bar dt {
+	color: var(--swpp-muted);
+}
+
+.swpp-bar dd {
+	display: flex;
+	gap: var(--swpp-space-2);
+	align-items: center;
+	margin: 0;
+}
+
+.swpp-bar__track {
+	flex: 1;
+	height: 8px;
+	overflow: hidden;
+	border-radius: 999px;
+	background: #f0f0f1;
+}
+
+.swpp-bar__fill {
+	display: block;
+	height: 100%;
+	border-radius: 999px;
+}
+
+.swpp-bar__value {
+	min-width: 56px;
+	font-weight: 600;
+	text-align: right;
+}
+
+.swpp-speed__form {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--swpp-space-2);
+	align-items: center;
+	margin-top: auto;
+	padding-top: var(--swpp-space-2);
+}
+
+.swpp-speed__form label {
+	flex-basis: 100%;
+	color: var(--swpp-text);
+	font-weight: 600;
+}
+
+.swpp-speed__form select {
+	flex: 1 1 180px;
+	max-width: 100%;
+}
+
+.swpp-method,
+.swpp-speed__error {
+	color: var(--swpp-muted);
+}
+
+.swpp-method summary,
+.swpp-speed__error summary,
+.swpp-admin .swpp-details summary {
+	cursor: pointer;
+	color: var(--swpp-accent);
+}
+
+.swpp-method p {
+	max-width: 60ch;
+	margin: var(--swpp-space-2) 0 0;
+}
+
+/* Background activity and progress. */
+.swpp-activity {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--swpp-space-3);
+	align-items: center;
+	justify-content: space-between;
+	margin: 0 0 var(--swpp-space-4);
+	padding: var(--swpp-space-2) var(--swpp-space-2) var(--swpp-space-2) var(--swpp-space-4);
+	border: 1px solid #c5d9ed;
+	border-radius: 4px;
+	background: #f0f6fc;
+	color: #0a4b78;
+}
+
+.swpp-activity[hidden],
+.swpp-progress[hidden] {
+	display: none;
+}
+
+.swpp-activity__text {
+	display: flex;
+	gap: var(--swpp-space-2);
+	align-items: center;
+}
+
+.swpp-activity__text p {
+	margin: 0;
+}
+
+.swpp-activity .spinner {
+	float: none;
+	margin: 0;
+}
+
+.swpp-progress {
+	display: grid;
+	gap: var(--swpp-space-2);
+	margin: 0 0 var(--swpp-space-4);
+}
+
+.swpp-progress progress {
+	width: 100%;
+	height: 8px;
+	accent-color: var(--swpp-accent);
+}
+
+.swpp-progress p {
+	margin: 0;
+	font-variant-numeric: tabular-nums;
+}
+
+.swpp-admin .notice.swpp-paused p,
+.swpp-admin .notice.swpp-exposed p {
+	flex: 1 1 320px;
+	margin: 0;
+}
+
+/* Pages table: native list table, quieter state column. */
+.swpp-admin .swpp-section-title {
+	margin: var(--swpp-space-8) 0 var(--swpp-space-1);
+	font-size: 16px;
+	font-weight: 600;
+}
+
+.swpp-admin .wp-list-table .column-status {
+	width: 32%;
+}
+
+.swpp-admin .wp-list-table .column-type {
+	width: 12%;
+}
+
+.swpp-admin .wp-list-table .column-updated {
+	width: 16%;
+	font-variant-numeric: tabular-nums;
+}
+
+/* Row actions stay visible: reachable by keyboard and touch. */
+.swpp-admin .wp-list-table .row-actions {
+	position: static;
+	left: auto;
+}
+
+.swpp-admin .swpp-url {
+	display: block;
+	margin-top: 2px;
+	padding: 0;
+	background: none;
+	color: var(--swpp-muted);
+	font-family: inherit;
+	font-size: 12px;
+	word-break: break-all;
+}
+
+.swpp-mobile-status {
+	display: none;
+	margin-top: var(--swpp-space-2);
+}
+
+.swpp-state {
+	display: inline-flex;
+	gap: var(--swpp-space-2);
+	align-items: center;
+	color: var(--swpp-text);
+	font-weight: 600;
+}
+
+.swpp-state--good {
+	color: var(--swpp-good-text);
+}
+
+.swpp-state--good .swpp-dot {
+	background: var(--swpp-good);
+}
+
+.swpp-state--info .swpp-dot {
+	background: var(--swpp-info);
+}
+
+.swpp-state--warn {
+	color: var(--swpp-warn-text);
+}
+
+.swpp-state--warn .swpp-dot {
+	background: var(--swpp-warn);
+}
+
+.swpp-state--bad {
+	color: var(--swpp-bad-text);
+}
+
+.swpp-state--bad .swpp-dot {
+	background: var(--swpp-bad);
+}
+
+.swpp-state--neutral {
+	color: var(--swpp-muted);
+	font-weight: 400;
+}
+
+.swpp-reason {
+	display: block;
+	margin: 2px 0 0 16px;
+	color: var(--swpp-muted);
+}
+
+.swpp-result {
+	margin: var(--swpp-space-1) 0 0;
+}
+
+.swpp-result:empty {
+	display: none;
+}
+
+.swpp-result--success {
+	color: var(--swpp-good-text);
+}
+
+.swpp-result--info {
+	color: #0a4b78;
+}
+
+.swpp-result--warning {
+	color: var(--swpp-warn-text);
+}
+
+.swpp-result--error {
+	color: var(--swpp-bad-text);
+}
+
+.swpp-row--busy td {
+	opacity: 0.55;
+	transition: opacity 150ms ease-out;
+}
+
+/* Secondary information stays out of the way. */
+.swpp-details__meta {
+	margin-left: var(--swpp-space-2);
+	color: var(--swpp-muted);
+	font-weight: 400;
+}
+
+.swpp-speed-options form {
+	max-width: 70ch;
+	margin-top: var(--swpp-space-3);
+}
+
+.swpp-speed-options fieldset {
+	display: grid;
+	gap: var(--swpp-space-4);
+	margin: 0 0 var(--swpp-space-4);
+}
+
+.swpp-option {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	gap: var(--swpp-space-2);
+	align-items: start;
+	color: var(--swpp-text);
+}
+
+.swpp-option input {
+	margin-top: 2px;
+}
+
+.swpp-option__help {
+	display: block;
+	margin-top: 2px;
+	color: var(--swpp-muted);
+}
+
+.swpp-admin .swpp-details {
+	margin-top: var(--swpp-space-8);
+	color: var(--swpp-muted);
+}
+
+.swpp-admin .swpp-details summary {
+	font-weight: 600;
+}
+
+.swpp-admin summary:focus,
+.swpp-admin .swpp-summary__note a:focus {
+	outline: 2px solid transparent;
+	box-shadow: 0 0 0 2px var(--swpp-accent);
+}
+
+.swpp-admin ::selection {
+	background: rgba(34, 113, 177, 0.2);
+}
+
+@media screen and (max-width: 782px) {
+
+	.swpp-mobile-status {
+		display: block;
+	}
+
+	.swpp-admin .swpp-summary {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.swpp-summary__speed {
+		border-top: 1px solid var(--swpp-line);
+		border-left: 0;
+	}
+
+	.swpp-summary__coverage,
+	.swpp-summary__speed {
+		padding: var(--swpp-space-4);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+	.swpp-row--busy td {
+		transition: none;
+	}
+}
