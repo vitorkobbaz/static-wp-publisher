@@ -1,5 +1,5 @@
 === Static Publisher ===
-Contributors: kobbaz
+Contributors: vitorkobbaz
 Tags: static site, static html, performance, export, speed
 Requires at least: 6.5
 Tested up to: 7.1
