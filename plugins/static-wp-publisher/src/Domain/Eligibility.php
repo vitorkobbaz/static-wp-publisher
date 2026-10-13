@@ -33,11 +33,6 @@ final class Eligibility {
 		if ( isset( $headers['set-cookie'] ) ) {
 			return PublishResult::refused( 'Response attempted to set a cookie.' );
 		}
-		$privacy = self::privacySignal( $headers );
-		if ( null !== $privacy ) {
-			return PublishResult::refused( $privacy );
-		}
-
 		if ( false !== stripos( $body, 'name="post_password"' ) ) {
 			return PublishResult::refused( 'Page is password protected.' );
 		}
@@ -49,6 +44,12 @@ final class Eligibility {
 			if ( false !== stripos( $body, $marker ) ) {
 				return PublishResult::refused( 'Response appears personalized or protected.' );
 			}
+		}
+
+		// Checked after the body markers so a protected page keeps its specific reason.
+		$privacy = self::privacySignal( $headers );
+		if ( null !== $privacy ) {
+			return PublishResult::refused( $privacy );
 		}
 
 		if ( '' === trim( $body ) ) {

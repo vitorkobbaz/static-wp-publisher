@@ -69,6 +69,12 @@ final class EligibilityTest extends TestCase {
 		}
 	}
 
+	public function test_password_form_reason_wins_over_private_cache_headers(): void {
+		$result = Eligibility::check( 200, self::HTML + array( 'cache-control' => 'private' ), '<input name="post_password">' );
+
+		self::assertSame( 'Page is password protected.', $result->message );
+	}
+
 	public function test_shareable_cache_headers_stay_eligible(): void {
 		$headers = self::HTML + array(
 			'cache-control' => 'public, max-age=600',
