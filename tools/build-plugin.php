@@ -1,15 +1,15 @@
 <?php
 /**
- * Builds the WordPress.org package of the free plugin: dist/static-wp-publisher-<version>.zip
- * with a single static-wp-publisher/ folder. Fails when versions disagree, so a release
+ * Builds the WordPress.org package of the free plugin: dist/static-publisher-<version>.zip
+ * with a single static-publisher/ folder. Fails when versions disagree, so a release
  * never ships a readme, header and constant that point at different versions.
  */
 
 declare(strict_types=1);
 
 $root   = dirname( __DIR__ );
-$plugin = $root . '/plugins/static-wp-publisher';
-$main   = (string) file_get_contents( $plugin . '/static-wp-publisher.php' );
+$plugin = $root . '/plugins/static-publisher';
+$main   = (string) file_get_contents( $plugin . '/static-publisher.php' );
 $readme = (string) file_get_contents( $plugin . '/readme.txt' );
 
 preg_match( '/^\s*\*\s*Version:\s*(\S+)/m', $main, $header );
@@ -23,14 +23,14 @@ if ( '' === $versions[0] || 1 !== count( array_unique( $versions ) ) ) {
 $version = $versions[0];
 
 // Only runtime files are shipped.
-$include = array( 'static-wp-publisher.php', 'uninstall.php', 'readme.txt', 'src', 'assets', 'languages' );
+$include = array( 'static-publisher.php', 'uninstall.php', 'readme.txt', 'src', 'assets', 'languages' );
 
 $dist = $root . '/dist';
 if ( ! is_dir( $dist ) && ! mkdir( $dist, 0755, true ) ) {
 	fwrite( STDERR, 'Unable to create dist/.' . PHP_EOL );
 	exit( 1 );
 }
-$target = $dist . '/static-wp-publisher-' . $version . '.zip';
+$target = $dist . '/static-publisher-' . $version . '.zip';
 @unlink( $target );
 
 $zip = new ZipArchive();
@@ -42,7 +42,7 @@ $count = 0;
 foreach ( $include as $entry ) {
 	$path = $plugin . '/' . $entry;
 	if ( is_file( $path ) ) {
-		$zip->addFile( $path, 'static-wp-publisher/' . $entry );
+		$zip->addFile( $path, 'static-publisher/' . $entry );
 		++$count;
 		continue;
 	}
@@ -55,7 +55,7 @@ foreach ( $include as $entry ) {
 			continue;
 		}
 		$relative = str_replace( '\\', '/', substr( $file->getPathname(), strlen( $plugin ) + 1 ) );
-		$zip->addFile( $file->getPathname(), 'static-wp-publisher/' . $relative );
+		$zip->addFile( $file->getPathname(), 'static-publisher/' . $relative );
 		++$count;
 	}
 }

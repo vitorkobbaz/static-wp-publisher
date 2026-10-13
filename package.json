@@ -1,8 +1,8 @@
 {
-  "name": "static-wp-publisher",
+  "name": "static-publisher",
   "private": true,
   "version": "1.0.0",
-  "description": "Development tooling for Static WP Publisher.",
+  "description": "Development tooling for Static Publisher.",
   "scripts": {
     "env:start": "wp-env start",
     "env:stop": "wp-env stop",

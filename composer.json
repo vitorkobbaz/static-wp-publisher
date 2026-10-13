@@ -1,6 +1,6 @@
 {
-  "name": "kobbaz/static-wp-publisher",
-  "description": "Monorepo for Static WP Publisher Core and add-ons.",
+  "name": "kobbaz/static-publisher",
+  "description": "Monorepo for Static Publisher Core and add-ons.",
   "type": "project",
   "license": "GPL-2.0-or-later",
   "require": {
@@ -19,7 +19,7 @@
   },
   "autoload": {
     "psr-4": {
-      "SWPP\\Core\\": "plugins/static-wp-publisher/src/"
+      "SWPP\\Core\\": "plugins/static-publisher/src/"
     }
   },
   "autoload-dev": {

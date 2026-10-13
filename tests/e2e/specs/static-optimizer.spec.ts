@@ -44,7 +44,7 @@ async function republish(
 /** Computed styles of every element, as a comparable fingerprint of how the page looks. */
 async function styleFingerprint(page: Page, url: string): Promise<string[]> {
     const response = await page.goto(url);
-    expect(response?.headers()["x-static-wp-publisher"]).toBe("HIT");
+    expect(response?.headers()["x-static-publisher"]).toBe("HIT");
     await page.waitForLoadState("load");
     return page.evaluate(async () => {
         await document.fonts.ready;
