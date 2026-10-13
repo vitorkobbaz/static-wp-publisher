@@ -70,7 +70,13 @@ async function styleFingerprint(page: Page, url: string): Promise<string[]> {
             .slice(0, 600)
             .map((element) => {
                 const style = window.getComputedStyle(element);
-                return `${element.tagName}.${element.className}|${properties
+                // Normalized: core scripts (e.g. the WordPress 6.5 navigation block)
+                // can leave stray spaces in the class attribute when toggling classes.
+                const classes = (element.getAttribute("class") ?? "")
+                    .split(/\s+/)
+                    .filter(Boolean)
+                    .join(" ");
+                return `${element.tagName}.${classes}|${properties
                     .map((property) => style.getPropertyValue(property))
                     .join("|")}`;
             });

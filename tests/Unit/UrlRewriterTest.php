@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace SWPP\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
-use SWPP\Export\UrlRewriter;
+use SWPP\Core\Export\UrlRewriter;
 
 final class UrlRewriterTest extends TestCase {
 	private UrlRewriter $rewriter;

@@ -2,12 +2,12 @@
 /**
  * Context-aware HTML URL rewriting.
  *
- * @package StaticWPPublisherExport
+ * @package StaticWPPublisher
  */
 
 declare(strict_types=1);
 
-namespace SWPP\Export;
+namespace SWPP\Core\Export;
 
 use DOMDocument;
 use DOMElement;

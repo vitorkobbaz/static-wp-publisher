@@ -4,8 +4,8 @@ declare(strict_types=1);
 namespace SWPP\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
-use SWPP\Export\Domain\ExportBudget;
-use SWPP\Export\Domain\ExportLimitExceeded;
+use SWPP\Core\Export\Domain\ExportBudget;
+use SWPP\Core\Export\Domain\ExportLimitExceeded;
 
 final class ExportBudgetTest extends TestCase {
 	public function testStaysQuietWithinLimits(): void {

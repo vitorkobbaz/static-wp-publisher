@@ -96,3 +96,9 @@ Portable export working directories and ZIP files are stored separately under th
 - Export copies only files that are public by design: under `wp-content`, `wp-includes`, or the uploads directory (resolved after symlinks), never Static WP Publisher private storage. Document links (`<a href>`) are only followed into the media library. Data formats (json, xml, txt, map) are not copied unless `swpp_export_asset_extensions` allows them.
 - Each export run is bounded (pages, files, references, per-file and total bytes, and elapsed time; filter `swpp_export_limits`). Exceeding a limit stops the export and removes its partial files; one oversized asset is only skipped with a warning.
 - Commercial licensing is isolated behind an adapter and cannot disable Core.
+
+## Extension points for add-ons
+
+- `swpp_deploy_targets` (filter): add-ons return objects implementing `SWPP\Core\Export\DeployTarget`. Each target appears as a "Deploy to" option on the export screen and receives the finished export.
+- `swpp_artifact_published` (action, `$url, $relative, $hash`): fires after a static copy is written, so a deployment add-on can send only what changed.
+- `swpp_export_ready` (action): fires once the export module is registered.

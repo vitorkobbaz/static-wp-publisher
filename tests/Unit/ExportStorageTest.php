@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace SWPP\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
-use SWPP\Export\Infrastructure\ExportStorage;
+use SWPP\Core\Export\Infrastructure\ExportStorage;
 
 final class ExportStorageTest extends TestCase {
 	private string $temporary;

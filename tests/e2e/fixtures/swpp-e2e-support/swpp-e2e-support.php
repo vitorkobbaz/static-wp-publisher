@@ -91,8 +91,7 @@ add_filter(
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
 	final class SWPP_E2E_Command {
-		private const CORE_PLUGIN   = 'static-wp-publisher/static-wp-publisher.php';
-		private const EXPORT_PLUGIN = 'static-wp-publisher-export/static-wp-publisher-export.php';
+		private const CORE_PLUGIN = 'static-wp-publisher/static-wp-publisher.php';
 
 		private const UPGRADE_PAGE_PREFIX = 'swpp-e2e-upgrade-';
 
@@ -109,7 +108,7 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			if ( $template instanceof \WP_Post ) {
 				wp_delete_post( $template->ID, true );
 			}
-			deactivate_plugins( array( self::EXPORT_PLUGIN, self::CORE_PLUGIN ), false );
+			deactivate_plugins( array( self::CORE_PLUGIN ), false );
 			$this->dropTables();
 			foreach ( array( 'swpp_settings', 'swpp_redirects', 'swpp_schema_version', 'swpp_full_rebuild_recommended', 'swpp_inventory_scan', 'swpp_e2e_migrated_by', 'swpp_speed_check' ) as $option ) {
 				delete_option( $option );
@@ -122,10 +121,6 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			flush_rewrite_rules();
 
 			$result = activate_plugin( self::CORE_PLUGIN, '', false, false );
-			if ( is_wp_error( $result ) ) {
-				\WP_CLI::error( $result->get_error_message() );
-			}
-			$result = activate_plugin( self::EXPORT_PLUGIN, '', false, false );
 			if ( is_wp_error( $result ) ) {
 				\WP_CLI::error( $result->get_error_message() );
 			}
@@ -153,7 +148,6 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			$this->json(
 				array(
 					'core_active'   => is_plugin_active( self::CORE_PLUGIN ),
-					'export_active' => is_plugin_active( self::EXPORT_PLUGIN ),
 					'schema'        => (int) get_option( 'swpp_schema_version', 0 ),
 					'tables'        => $tables,
 					'active_index'  => null !== $active_index,

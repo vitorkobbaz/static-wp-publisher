@@ -2,12 +2,12 @@
 /**
  * ZIP package creation.
  *
- * @package StaticWPPublisherExport
+ * @package StaticWPPublisher
  */
 
 declare(strict_types=1);
 
-namespace SWPP\Export\Infrastructure;
+namespace SWPP\Core\Export\Infrastructure;
 
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;

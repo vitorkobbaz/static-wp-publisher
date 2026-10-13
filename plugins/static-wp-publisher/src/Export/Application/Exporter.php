@@ -2,12 +2,12 @@
 /**
  * Portable static export service.
  *
- * @package StaticWPPublisherExport
+ * @package StaticWPPublisher
  */
 
 declare(strict_types=1);
 
-namespace SWPP\Export\Application;
+namespace SWPP\Core\Export\Application;
 
 use FilesystemIterator;
 use RecursiveDirectoryIterator;
@@ -15,13 +15,13 @@ use RecursiveIteratorIterator;
 use RuntimeException;
 use Throwable;
 use SWPP\Core\Infrastructure\Storage;
-use SWPP\Export\Domain\ExportBudget;
-use SWPP\Export\Domain\ExportRequest;
-use SWPP\Export\Domain\ExportResult;
-use SWPP\Export\Infrastructure\AssetCollector;
-use SWPP\Export\Infrastructure\ExportStorage;
-use SWPP\Export\Infrastructure\ZipPackager;
-use SWPP\Export\UrlRewriter;
+use SWPP\Core\Export\Domain\ExportBudget;
+use SWPP\Core\Export\Domain\ExportRequest;
+use SWPP\Core\Export\Domain\ExportResult;
+use SWPP\Core\Export\Infrastructure\AssetCollector;
+use SWPP\Core\Export\Infrastructure\ExportStorage;
+use SWPP\Core\Export\Infrastructure\ZipPackager;
+use SWPP\Core\Export\UrlRewriter;
 
 final class Exporter {
 	public function __construct(
@@ -170,7 +170,7 @@ final class Exporter {
 		ksort( $files );
 		return array(
 			'schema'      => 1,
-			'generator'   => 'Static WP Publisher Export ' . SWPP_EXPORT_VERSION,
+			'generator'   => 'Static WP Publisher ' . SWPP_VERSION,
 			'created_at'  => gmdate( DATE_ATOM ),
 			'mode'        => $request->mode,
 			'target_base' => $request->targetBase,

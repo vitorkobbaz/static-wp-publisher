@@ -5,7 +5,7 @@ namespace SWPP\Tests\Unit;
 
 use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
-use SWPP\Export\Domain\ExportRequest;
+use SWPP\Core\Export\Domain\ExportRequest;
 
 final class ExportRequestTest extends TestCase {
 	public function testRequiresTargetForPublishableMode(): void {

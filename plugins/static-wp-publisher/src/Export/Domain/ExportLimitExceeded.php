@@ -2,12 +2,12 @@
 /**
  * Raised when an export run exceeds its resource budget.
  *
- * @package StaticWPPublisherExport
+ * @package StaticWPPublisher
  */
 
 declare(strict_types=1);
 
-namespace SWPP\Export\Domain;
+namespace SWPP\Core\Export\Domain;
 
 use RuntimeException;
 

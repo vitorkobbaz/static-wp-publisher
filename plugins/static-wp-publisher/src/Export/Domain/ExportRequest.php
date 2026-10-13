@@ -2,12 +2,12 @@
 /**
  * Export request value object.
  *
- * @package StaticWPPublisherExport
+ * @package StaticWPPublisher
  */
 
 declare(strict_types=1);
 
-namespace SWPP\Export\Domain;
+namespace SWPP\Core\Export\Domain;
 
 use InvalidArgumentException;
 

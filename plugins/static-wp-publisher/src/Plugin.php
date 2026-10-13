@@ -18,6 +18,7 @@ use SWPP\Core\Application\Queue;
 use SWPP\Core\Application\StatusReport;
 use SWPP\Core\Application\Worker;
 use SWPP\Core\Cli\Commands;
+use SWPP\Core\Export\ExportModule;
 use SWPP\Core\Http\RestController;
 use SWPP\Core\Infrastructure\Database;
 use SWPP\Core\Infrastructure\CronSchedule;
@@ -57,6 +58,7 @@ final class Plugin {
 		$verifier = new Verifier();
 		( new AdminPage( $queue, $publisher, $inventory, $storage, $report, $verifier ) )->register();
 		( new RestController( $queue, $publisher, $inventory, $storage, $report, $verifier ) )->register();
+		( new ExportModule() )->register();
 
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			Commands::register( $queue, $publisher, $inventory, $storage );

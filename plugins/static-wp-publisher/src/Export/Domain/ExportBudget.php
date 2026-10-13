@@ -2,12 +2,12 @@
 /**
  * Resource limits for one export run.
  *
- * @package StaticWPPublisherExport
+ * @package StaticWPPublisher
  */
 
 declare(strict_types=1);
 
-namespace SWPP\Export\Domain;
+namespace SWPP\Core\Export\Domain;
 
 /**
  * Published content decides how many pages and assets an export touches, so every run

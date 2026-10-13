@@ -8,7 +8,6 @@ import { loginAsAdmin } from "../support/admin";
 
 type ActivationState = {
     core_active: boolean;
-    export_active: boolean;
     schema: number;
     tables: Record<string, boolean>;
     active_index: boolean;
@@ -33,7 +32,6 @@ test.describe
         );
 
         expect(state.core_active).toBe(true);
-        expect(state.export_active).toBe(true);
         expect(state.schema).toBe(2);
         expect(state.tables).toEqual({
             jobs: true,
@@ -105,6 +103,10 @@ test.describe
         await page.goto("/wp-admin/admin.php?page=static-wp-publisher-export");
         await expect(
             page.getByRole("heading", { name: "Portable Export" }),
+        ).toBeVisible();
+        // The free plugin exports without a licence and mentions Pro only here.
+        await expect(
+            page.getByRole("heading", { name: "Publish automatically" }),
         ).toBeVisible();
         await page
             .getByRole("button", { name: "Create portable export" })
