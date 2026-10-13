@@ -15,3 +15,5 @@
 *.zip
 .DS_Store
 Thumbs.db
+/dist/
+/build/

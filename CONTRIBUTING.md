@@ -28,3 +28,9 @@ WPML and Freemius jobs are skipped unless their protected CI secrets are availab
 ## Real-site fixtures
 
 Real sites may be used only in isolated private environments. They must be anonymized by default. Credentials, tokens, customer records, orders, messages, and other personal data must never enter Git or public CI.
+
+## Releasing the free plugin
+
+1. Set the same version in the plugin header, `SWPP_VERSION`, and the readme `Stable tag`, and add a changelog entry.
+2. Build locally with `php tools/build-plugin.php`; the ZIP lands in `dist/`. CI builds it and runs the official Plugin Check on every pull request.
+3. Push a tag `v<version>`. The release workflow attaches the ZIP to a GitHub release and, once the `SVN_USERNAME` and `SVN_PASSWORD` secrets are set, deploys the plugin and `.wordpress-org/` assets to WordPress.org.

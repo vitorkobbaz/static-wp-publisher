@@ -24,7 +24,7 @@ type ArtifactState = {
 };
 
 test.describe
-    .serial("Static WP Publisher on a real WordPress installation", () => {
+    .serial("Static Publisher on a real WordPress installation", () => {
     test("activates with its schema, storage and worker schedule", async () => {
         parseFixtureJson(runWp(["swpp-e2e", "reset"]));
         const state = parseFixtureJson<ActivationState>(
@@ -72,7 +72,7 @@ test.describe
         parseFixtureJson(runWp(["swpp-e2e", "enable"]));
         const anonymous = await request.get(post.url);
         expect(anonymous.ok()).toBe(true);
-        expect(anonymous.headers()["x-static-wp-publisher"]).toBe("HIT");
+        expect(anonymous.headers()["x-static-publisher"]).toBe("HIT");
         expect(await anonymous.text()).toContain('data-swpp-e2e="v1"');
 
         parseFixtureJson(runWp(["swpp-e2e", "update", String(post.id), "v2"]));
@@ -83,7 +83,7 @@ test.describe
         expect(artifact.content).toContain('data-swpp-e2e="v2"');
 
         const refreshed = await request.get(post.url);
-        expect(refreshed.headers()["x-static-wp-publisher"]).toBe("HIT");
+        expect(refreshed.headers()["x-static-publisher"]).toBe("HIT");
         expect(await refreshed.text()).toContain('data-swpp-e2e="v2"');
 
         await context.addCookies([
@@ -95,12 +95,12 @@ test.describe
         ]);
         const bypassed = await page.goto(post.url);
         expect(bypassed).not.toBeNull();
-        expect(bypassed?.headers()["x-static-wp-publisher"]).toBeUndefined();
+        expect(bypassed?.headers()["x-static-publisher"]).toBeUndefined();
         expect(await page.content()).toContain('data-swpp-e2e="v2"');
 
         await loginAsAdmin(page);
 
-        await page.goto("/wp-admin/admin.php?page=static-wp-publisher-export");
+        await page.goto("/wp-admin/admin.php?page=static-publisher-export");
         await expect(
             page.getByRole("heading", { name: "Portable Export" }),
         ).toBeVisible();

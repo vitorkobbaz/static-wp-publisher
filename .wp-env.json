@@ -2,7 +2,7 @@
   "core": "WordPress/WordPress#7.1.2",
   "phpVersion": "8.3",
   "plugins": [
-    "./plugins/static-wp-publisher"
+    "./plugins/static-publisher"
   ],
   "config": {
     "WP_DEBUG": true,
@@ -12,7 +12,7 @@
     "tests": {
       "port": 80,
       "plugins": [
-        "./plugins/static-wp-publisher",
+        "./plugins/static-publisher",
         "./tests/e2e/fixtures/swpp-e2e-support"
       ],
       "config": {
