@@ -147,6 +147,7 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			$active_index = $wpdb->get_var( "SHOW INDEX FROM `{$jobs}` WHERE Key_name = 'active_hash'" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 			$uploads      = wp_upload_dir();
 			$root         = trailingslashit( (string) $uploads['basedir'] ) . 'static-wp-publisher/site-' . get_current_blog_id();
+			$private      = ( new \SWPP\Core\Infrastructure\Storage() )->privateRoot();
 			$settings     = get_option( 'swpp_settings', array() );
 
 			$this->json(
@@ -159,10 +160,11 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 					'cron'          => false !== wp_next_scheduled( 'swpp_process_queue' ),
 					'enabled'       => ! empty( $settings['enabled'] ),
 					'directories'   => array(
-						'published' => is_dir( $root . '/published' ),
-						'versions'  => is_dir( $root . '/versions' ),
-						'tmp'       => is_dir( $root . '/tmp' ),
-						'manifests' => is_dir( $root . '/manifests' ),
+						'published'       => is_dir( $root . '/published' ),
+						'private_versions' => is_dir( $private . '/versions' ),
+						'private_tmp'      => is_dir( $private . '/tmp' ),
+						'public_versions'  => is_dir( $root . '/versions' ),
+						'public_tmp'       => is_dir( $root . '/tmp' ),
 					),
 				)
 			);
