@@ -33,14 +33,25 @@ final class Worker {
 	 * One complete worker pass: continues any inventory scan, then drains due jobs.
 	 */
 	public function runPass( Inventory $inventory, WorkerBudget $budget ): WorkerReport {
-		if ( false !== get_option( 'swpp_full_rebuild_recommended', false ) ) {
+		// Content edits only request a sweep. A sweep in progress is never restarted and
+		// a new one starts at most once per interval, so frequent edits cannot multiply
+		// full-site rebuilds; the request stays pending until then.
+		if ( false !== get_option( 'swpp_full_rebuild_recommended', false ) && ! $inventory->scanInProgress() && $this->sweepDue() ) {
 			// Delete first so a concurrent content change can safely request another sweep.
 			delete_option( 'swpp_full_rebuild_recommended' );
+			update_option( 'swpp_last_full_sweep', time(), false );
 			$inventory->enqueueAll();
 		} else {
 			$inventory->enqueueBatch();
 		}
-		return $this->run( $budget );
+		$report = $this->run( $budget );
+		$this->queue->maybePruneHistory();
+		return $report;
+	}
+
+	private function sweepDue(): bool {
+		$interval = max( 0, (int) apply_filters( 'swpp_full_rebuild_interval', 15 * MINUTE_IN_SECONDS ) );
+		return time() - (int) get_option( 'swpp_last_full_sweep', 0 ) >= $interval;
 	}
 
 	public function run( WorkerBudget $budget ): WorkerReport {

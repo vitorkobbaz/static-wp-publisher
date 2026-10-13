@@ -15,6 +15,7 @@ use RecursiveIteratorIterator;
 use RuntimeException;
 use Throwable;
 use SWPP\Core\Infrastructure\Storage;
+use SWPP\Export\Domain\ExportBudget;
 use SWPP\Export\Domain\ExportRequest;
 use SWPP\Export\Domain\ExportResult;
 use SWPP\Export\Infrastructure\AssetCollector;
@@ -44,9 +45,11 @@ final class Exporter {
 				throw new RuntimeException( 'Unable to create export directory.' );
 			}
 
+			$budget   = new ExportBudget( (array) apply_filters( 'swpp_export_limits', ExportBudget::DEFAULTS ) );
 			$pages    = array();
-			$warnings = $this->copyAndRewrite( $source, $export_root, $request, $pages );
-			$warnings = array_values( array_unique( array_merge( $warnings, $this->assets->collect( $pages, $export_root ) ) ) );
+			$warnings = $this->copyAndRewrite( $source, $export_root, $request, $pages, $budget );
+			$warnings = array_values( array_unique( array_merge( $warnings, $this->assets->collect( $pages, $export_root, $budget ) ) ) );
+			$budget->checkTime();
 			$this->rewriteStylesheets( $export_root, $request );
 			file_put_contents( $export_root . '/README-DEPLOYMENT.txt', $this->deploymentReadme( $request, $warnings ), LOCK_EX );
 			$manifest = $this->manifest( $export_root, $request, $warnings );
@@ -87,10 +90,10 @@ final class Exporter {
 	}
 
 	/**
-	 * @param list<array{html:string,relative:string}> $pages Original pages for asset collection.
+	 * @param list<array{path:string,relative:string}> $pages Original pages for asset collection.
 	 * @return list<string>
 	 */
-	private function copyAndRewrite( string $source, string $destination, ExportRequest $request, array &$pages ): array {
+	private function copyAndRewrite( string $source, string $destination, ExportRequest $request, array &$pages, ExportBudget $budget ): array {
 		$warnings    = array();
 		$seen        = array();
 		$real_source = realpath( $source );
@@ -114,14 +117,16 @@ final class Exporter {
 				continue;
 			}
 			wp_mkdir_p( dirname( $target ) );
+			$budget->addFile( (int) $item->getSize() );
 			$extension = strtolower( pathinfo( $relative, PATHINFO_EXTENSION ) );
 			if ( 'html' === $extension ) {
 				$html = file_get_contents( $absolute );
 				if ( false === $html ) {
 					throw new RuntimeException( 'Unable to read generated page: ' . $relative );
 				}
+				$budget->addPage();
 				$pages[]   = array(
-					'html'     => $html,
+					'path'     => $absolute,
 					'relative' => $relative,
 				);
 				$warnings  = array_merge( $warnings, $this->dynamicWarnings( $html, $relative ) );

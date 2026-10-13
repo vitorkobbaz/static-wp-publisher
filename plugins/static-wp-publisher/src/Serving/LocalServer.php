@@ -29,7 +29,10 @@ final class LocalServer {
 		if ( 'GET' !== strtoupper( $request_method ) || is_user_logged_in() || is_admin() || wp_doing_ajax() ) {
 			return;
 		}
-		if ( $this->isSignedRenderRequest() || $this->hasBypassCookie() ) {
+		if ( $this->isSignedRenderRequest() || $this->hasBypassCookie() || $this->hasCredentials() ) {
+			return;
+		}
+		if ( ! $this->routeIsPublic() ) {
 			return;
 		}
 
@@ -75,8 +78,33 @@ final class LocalServer {
 		return hash_equals( hash_hmac( 'sha256', $url, wp_salt( 'auth' ) ), $provided );
 	}
 
+	/**
+	 * WordPress has already resolved the request when template_redirect runs, so the
+	 * current route and visibility are checked before a file is trusted: a copy left
+	 * behind by a renamed, deleted, unpublished or password-protected page is never served,
+	 * even before the queue gets to remove it.
+	 */
+	private function routeIsPublic(): bool {
+		if ( is_404() || is_preview() || is_search() || is_feed() || is_robots() ) {
+			return false;
+		}
+		if ( is_singular() ) {
+			$post = get_queried_object();
+			if ( ! $post instanceof \WP_Post || 'publish' !== get_post_status( $post ) || '' !== (string) $post->post_password ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	private function hasCredentials(): bool {
+		return ! empty( $_SERVER['HTTP_AUTHORIZATION'] ) || ! empty( $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ) || ! empty( $_SERVER['PHP_AUTH_USER'] );
+	}
+
 	private function hasBypassCookie(): bool {
-		$prefixes = array( 'wordpress_logged_in_', 'woocommerce_items_in_cart', 'wp_woocommerce_session_', 'comment_author_' );
+		$prefixes = array( 'wordpress_logged_in_', 'wp-postpass_', 'woocommerce_items_in_cart', 'wp_woocommerce_session_', 'comment_author_' );
+		// Integrations with their own visitor sessions register their cookie prefixes here.
+		$prefixes = array_values( array_filter( array_map( 'strval', (array) apply_filters( 'swpp_bypass_cookie_prefixes', $prefixes ) ) ) );
 		foreach ( array_keys( $_COOKIE ) as $cookie ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 			foreach ( $prefixes as $prefix ) {
 				if ( str_starts_with( (string) $cookie, $prefix ) ) {

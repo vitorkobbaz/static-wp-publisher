@@ -33,6 +33,10 @@ final class Eligibility {
 		if ( isset( $headers['set-cookie'] ) ) {
 			return PublishResult::refused( 'Response attempted to set a cookie.' );
 		}
+		$privacy = self::privacySignal( $headers );
+		if ( null !== $privacy ) {
+			return PublishResult::refused( $privacy );
+		}
 
 		if ( false !== stripos( $body, 'name="post_password"' ) ) {
 			return PublishResult::refused( 'Page is password protected.' );
@@ -52,6 +56,47 @@ final class Eligibility {
 		}
 
 		return new PublishResult( true, 'Response is eligible.' );
+	}
+
+	/**
+	 * Standard signals that a response must not be stored or shared with other visitors.
+	 * A static copy is a shared public cache, so any of them refuses publication.
+	 *
+	 * @param array<string,string|string[]> $headers Response headers with lowercase names.
+	 */
+	private static function privacySignal( array $headers ): ?string {
+		if ( isset( $headers['www-authenticate'] ) || isset( $headers['proxy-authenticate'] ) ) {
+			return 'Response requires authentication.';
+		}
+		$cache_control = self::tokens( $headers['cache-control'] ?? '' );
+		if ( in_array( 'private', $cache_control, true ) || in_array( 'no-store', $cache_control, true ) ) {
+			return 'Response is marked private or not storable (Cache-Control).';
+		}
+		if ( in_array( 'no-cache', self::tokens( $headers['pragma'] ?? '' ), true ) ) {
+			return 'Response is marked not cacheable (Pragma: no-cache).';
+		}
+		$vary = self::tokens( $headers['vary'] ?? '' );
+		if ( array_intersect( array( '*', 'cookie', 'authorization' ), $vary ) ) {
+			return 'Response varies by visitor (Vary).';
+		}
+		return null;
+	}
+
+	/**
+	 * Lowercase directive names of a comma-separated header, without arguments.
+	 *
+	 * @param string|string[] $value Header value.
+	 * @return list<string>
+	 */
+	private static function tokens( string|array $value ): array {
+		$tokens = array();
+		foreach ( explode( ',', strtolower( is_array( $value ) ? implode( ',', $value ) : $value ) ) as $token ) {
+			$name = trim( explode( '=', $token, 2 )[0] );
+			if ( '' !== $name ) {
+				$tokens[] = $name;
+			}
+		}
+		return $tokens;
 	}
 
 	private static function isTransientStatus( int $status ): bool {

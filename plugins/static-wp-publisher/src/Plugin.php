@@ -52,7 +52,7 @@ final class Plugin {
 		add_action( 'swpp_process_queue', array( $this, 'processQueue' ) );
 
 		( new LocalServer( $storage ) )->register();
-		( new Invalidator( $queue ) )->register();
+		( new Invalidator( $queue, $publisher ) )->register();
 		$report   = new StatusReport( $database, $queue );
 		$verifier = new Verifier();
 		( new AdminPage( $queue, $publisher, $inventory, $storage, $report, $verifier ) )->register();

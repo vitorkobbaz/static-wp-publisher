@@ -22,6 +22,14 @@ final class HtmlOptimizer {
 
 	private const BACKGROUND_CANDIDATES = 3;
 
+	/** Most stylesheets merged into one combined file. */
+	public const MAX_SHEETS_PER_BUNDLE = 30;
+
+	/** Most stylesheet bytes read for one page; later sheets are left as they are. */
+	public const MAX_CSS_BYTES_PER_PAGE = 4194304;
+
+	private int $cssBytes = 0;
+
 	/** @var list<array{type:string,html:string,name:string,closing:bool}> */
 	private array $segments = array();
 
@@ -39,6 +47,7 @@ final class HtmlOptimizer {
 		}
 		$this->assets   = $assets;
 		$this->cssCache = array();
+		$this->cssBytes = 0;
 		$this->tokenize( $html );
 
 		$head_open  = $this->find( 'head', false );
@@ -306,7 +315,7 @@ final class HtmlOptimizer {
 			}
 			$sheet_media = strtolower( trim( (string) ( $tag->get( 'media' ) ?? 'all' ) ) );
 			$sheet_media = '' === $sheet_media ? 'all' : $sheet_media;
-			if ( array() !== $run && $sheet_media !== $media ) {
+			if ( array() !== $run && ( $sheet_media !== $media || count( $run ) >= self::MAX_SHEETS_PER_BUNDLE ) ) {
 				$this->flushRun( $run, $media );
 				$run = array();
 			}
@@ -368,7 +377,12 @@ final class HtmlOptimizer {
 
 	private function stylesheet( string $url ): ?string {
 		if ( ! array_key_exists( $url, $this->cssCache ) ) {
-			$this->cssCache[ $url ] = $this->assets->stylesheet( $url );
+			if ( $this->cssBytes >= self::MAX_CSS_BYTES_PER_PAGE ) {
+				return null;
+			}
+			$css                    = $this->assets->stylesheet( $url );
+			$this->cssBytes        += null === $css ? 0 : strlen( $css );
+			$this->cssCache[ $url ] = $this->cssBytes > self::MAX_CSS_BYTES_PER_PAGE ? null : $css;
 		}
 		return $this->cssCache[ $url ];
 	}

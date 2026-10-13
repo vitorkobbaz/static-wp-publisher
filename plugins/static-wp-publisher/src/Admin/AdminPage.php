@@ -295,7 +295,7 @@ final class AdminPage {
 		if ( $before['optimize'] === $optimize && $before['combine_css'] === $combine ) {
 			$this->redirect( __( 'Speed options unchanged.', 'static-wp-publisher' ), 'info' );
 		}
-		update_option( 'swpp_full_rebuild_recommended', time(), false );
+		$this->inventory->enqueueAll();
 		$this->redirect( __( 'Speed options saved. Every static copy is being rebuilt in the background.', 'static-wp-publisher' ) );
 	}
 

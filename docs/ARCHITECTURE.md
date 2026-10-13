@@ -11,9 +11,11 @@
 1. WordPress content or configuration changes enqueue affected URLs.
 2. A worker claims jobs with per-URL leases. Each cron, admin, or REST pass processes up to 50 URLs (`swpp_worker_batch_size`) and stops claiming new jobs after 20 seconds (`swpp_worker_time_budget`), capped at half of PHP `max_execution_time`. WP-CLI `wp swpp process --limit=<n>` has no time budget.
 3. The renderer fetches the anonymous public response with a signed internal-render header.
-4. Eligibility rejects private, personalized, erroneous, or unsafe responses. Deterministic refusals (password-protected, personalized, cookie-setting, non-HTML, or non-200/non-transient responses) remove any existing static copy so WordPress serves the page dynamically, and close the job as `skipped` without retries. Transient failures (network errors, 408/425/429, 5xx, empty bodies) retry with exponential backoff. The full inventory excludes password-protected posts.
-5. Storage writes to a temporary file, hashes it, and atomically replaces the live artifact.
-6. The previous artifact is retained according to the configured policy.
+4. Eligibility rejects private, personalized, erroneous, or unsafe responses. Deterministic refusals (password-protected, personalized, cookie-setting, `Cache-Control: private`/`no-store`, `Pragma: no-cache`, `Vary: Cookie`/`Authorization`/`*`, authentication challenges, non-HTML, or non-200/non-transient responses) remove any existing static copy so WordPress serves the page dynamically, and close the job as `skipped` without retries. Transient failures (network errors, 408/425/429, 5xx, empty bodies) retry with exponential backoff. The full inventory excludes password-protected posts.
+5. Storage writes to a temporary file, hashes it, and atomically replaces the live artifact. An unchanged page is not rewritten.
+6. The previous artifact is kept as history, up to `retain_versions` copies per page (default 3, 0 disables history).
+
+Unpublishing, trashing, deleting, making private, adding a password, or changing the address of a post or term removes the old copy and its history synchronously, before any rebuild. Content edits only request a full sweep: a running sweep is never restarted and a new one starts at most every 15 minutes (`swpp_full_rebuild_interval`). Finished jobs older than the latest job of each URL are pruned hourly.
 
 WP-Cron is a compatibility fallback. Production sites should configure a real scheduler or invoke WP-CLI. Direct web-server delivery is enabled only through reviewed server rules; PHP fallback remains available.
 
@@ -71,6 +73,7 @@ The Static Publisher screen is a read model (`StatusReport`) over the queue, the
   - Only runs of consecutive `<link rel="stylesheet">` in `<head>` are combined. The files must share the same `media`, be local, and contain no `@import`. Any inline style, script, other markup, or non-qualifying sheet ends a run, so the cascade order is unchanged.
   - Relative `url()` references are made absolute, and `@charset` is dropped.
   - Bundles are content-addressed files under `static-wp-publisher/site-N/assets/css/`, written atomically.
+  - Limits: at most 30 sheets per bundle and 4 MB of stylesheet reads per page; generated bundles are capped at 500 files and 100 MB (`swpp_max_generated_assets`, `swpp_max_generated_asset_bytes`). Past a limit, the original links stay.
 - **File access:** `Infrastructure\LocalAssetResolver` reads only files under `content_url()` or `includes_url()`, with an allowed extension, whose resolved real path stays inside `wp-content` or `wp-includes`. It never uses a path from a request.
 - **Rebuilds:** changing the options in "Speed options" rebuilds every copy.
 
@@ -78,15 +81,18 @@ The Static Publisher screen is a read model (`StatusReport`) over the queue, the
 
 Default root: `wp-content/uploads/static-wp-publisher/<site-id>/`
 
-Builds, published artifacts, versions, temporary files, and manifests are isolated. Temporary artifacts are denied public execution and use canonicalized allowlisted paths.
+Published artifacts and generated assets live under `published/` and `assets/`. Page history and temporary files live in `private-<key>/`, where the key is a random per-site secret (option `swpp_storage_key`), so they cannot be requested by address on any web server. Apache and IIS deny rules and empty index files are generated there as defence in depth. History from earlier versions (the old `versions/` directory) is moved there automatically.
 
-Portable export working directories and ZIP files are stored separately under the system temporary directory, outside every detected web document root. Hosts whose temporary directory resolves inside the public site must provide a writable private path with the `swpp_export_private_base_dir` filter. Download authorizations expire after one hour, while export data is retained briefly for retry and purged after 48 hours by a daily cleanup job.
+Portable export working directories and ZIP files are stored separately under the system temporary directory, outside every detected web document root, in `swpp-exports-<key>/site-N/` (random per-install key). Each directory is created by the PHP process with mode 0700 and re-verified on every use: not a symlink, owned by the PHP user, and not writable by group or others. Hosts whose temporary directory resolves inside the public site must provide a writable private path with the `swpp_export_private_base_dir` filter. Download authorizations expire after one hour, while export data is retained briefly for retry and purged after 48 hours by a daily cleanup job.
 
 ## Security boundaries
 
 - Only anonymous GET responses are eligible.
+- The PHP fallback serves a copy only when WordPress has resolved the request to a current, public route: never for a 404, preview, search, feed, or a singular item that is not published or has a password. It also steps aside for requests with credentials (`Authorization`), password-form cookies, and integration session cookies registered with `swpp_bypass_cookie_prefixes`.
 - The PHP fallback serves an artifact only for query-less URLs or URLs whose parameters are all known tracking parameters (`utm_*`, `gclid`, `fbclid`, `msclkid`, and similar; adjustable with `swpp_ignored_query_parameters`). Search, `?p=`, previews, pagination, and any other parameter reach WordPress.
 - Cookies, request bodies, authorization headers, and private response headers are never persisted. Nonces that themes or plugins print into public anonymous HTML (for example Elementor Pro front-end config) are persisted with the page and expire after 12–24 hours; see `PENDING_FEATURES.md`.
 - Renderer requests are host-restricted and signed to avoid cache recursion.
-- Export paths reject traversal, absolute paths, symlink escapes, duplicate normalized names, and case collisions.
+- Export paths reject traversal, control characters, absolute paths, symlink escapes, duplicate normalized names, and case collisions.
+- Export copies only files that are public by design: under `wp-content`, `wp-includes`, or the uploads directory (resolved after symlinks), never Static WP Publisher private storage. Document links (`<a href>`) are only followed into the media library. Data formats (json, xml, txt, map) are not copied unless `swpp_export_asset_extensions` allows them.
+- Each export run is bounded (pages, files, references, per-file and total bytes, and elapsed time; filter `swpp_export_limits`). Exceeding a limit stops the export and removes its partial files; one oversized asset is only skipped with a warning.
 - Commercial licensing is isolated behind an adapter and cannot disable Core.
