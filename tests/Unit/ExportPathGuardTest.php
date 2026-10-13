@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace SWPP\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
-use SWPP\Export\Infrastructure\ExportPathGuard;
+use SWPP\Core\Export\Infrastructure\ExportPathGuard;
 
 final class ExportPathGuardTest extends TestCase {
 	private string $temporary;

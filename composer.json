@@ -19,8 +19,7 @@
   },
   "autoload": {
     "psr-4": {
-      "SWPP\\Core\\": "plugins/static-wp-publisher/src/",
-      "SWPP\\Export\\": "plugins/static-wp-publisher-export/src/"
+      "SWPP\\Core\\": "plugins/static-wp-publisher/src/"
     }
   },
   "autoload-dev": {

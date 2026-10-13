@@ -2,20 +2,20 @@
 /**
  * Copies same-origin static assets referenced by generated pages.
  *
- * @package StaticWPPublisherExport
+ * @package StaticWPPublisher
  */
 
 declare(strict_types=1);
 
-namespace SWPP\Export\Infrastructure;
+namespace SWPP\Core\Export\Infrastructure;
 
 use DOMDocument;
 use DOMElement;
 use RuntimeException;
 use SplQueue;
 use SWPP\Core\Infrastructure\Storage;
-use SWPP\Export\Domain\ExportBudget;
-use SWPP\Export\Domain\ExportLimitExceeded;
+use SWPP\Core\Export\Domain\ExportBudget;
+use SWPP\Core\Export\Domain\ExportLimitExceeded;
 use Throwable;
 
 final class AssetCollector {

@@ -2,12 +2,12 @@
 /**
  * Resolves downloadable export archives within the managed exports directory.
  *
- * @package StaticWPPublisherExport
+ * @package StaticWPPublisher
  */
 
 declare(strict_types=1);
 
-namespace SWPP\Export\Infrastructure;
+namespace SWPP\Core\Export\Infrastructure;
 
 final class ExportPathGuard {
 	public function resolve( string $exportsRoot, string $candidate ): ?string {

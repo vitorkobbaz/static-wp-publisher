@@ -37,6 +37,7 @@ final class Activator {
 	}
 
 	public static function deactivate(): void {
+		wp_clear_scheduled_hook( \SWPP\Core\Export\Infrastructure\ExportStorage::CLEANUP_HOOK );
 		$timestamp = wp_next_scheduled( 'swpp_process_queue' );
 		while ( false !== $timestamp ) {
 			wp_unschedule_event( $timestamp, 'swpp_process_queue' );

@@ -67,6 +67,8 @@ final class Publisher {
 			$body = null === $this->optimizer ? $response['body'] : $this->optimizer->optimize( $response['body'] );
 			$file = $this->storage->write( $url, $body );
 			$this->recordArtifact( $url, $file['relative'], $file['hash'], $file['bytes'], $response['status'] );
+			// Lets deployment add-ons send only what changed.
+			do_action( 'swpp_artifact_published', $url, $file['relative'], $file['hash'] );
 			return new PublishResult( true, 'Published.', $file['relative'], $file['hash'] );
 		} catch ( Throwable $error ) {
 			return new PublishResult( false, $error->getMessage() );
