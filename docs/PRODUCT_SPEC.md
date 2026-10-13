@@ -8,32 +8,31 @@ The product intentionally contains no SEO-audit, SEO-scoring, LLM-discovery, or 
 
 ## First public release
 
-### Free Core
+### Free plugin (WordPress.org)
 
-- Unlimited local static pages.
+- Unlimited local static pages, with no page, build, or export quota.
 - Local atomic publication with stale-while-revalidate behavior.
 - Event-driven invalidation, persistent queue, retries, locks, and dynamic fallback.
+- Speed optimizations for static copies.
+- Manual full directory/ZIP exports: relocatable preview or publishable target-domain mode, asset copying, URL rewriting, manifests, checksums, deployment instructions, and large-package safeguards.
 - Apache, Nginx, and IIS guidance.
 - Basic history, rollback primitives, logs, REST API, and WP-CLI.
 
-### Individual Export add-on
+### Pro add-on (distributed outside WordPress.org)
 
-- Full and incremental directory/ZIP exports.
-- Relocatable preview or publishable target-domain mode.
-- Asset copying, URL rewriting, manifests, checksums, and deployment instructions.
-- Server profiles and large-package safeguards.
-- One WordPress installation per license.
+- Automatic deployment to SFTP, S3-compatible storage, and Netlify.
+- Incremental deployment of changed pages and assets after each publication.
+- Server profiles with redirect and real-404 configuration files.
+- Priority support. Licensed per site (1, 5, or 25 sites); see `COMMERCIAL.md`.
 
 ## Explicit non-goals for the first release
 
 - Search conversion.
 - Form or comment backends.
 - Headless-browser rendering.
-- Remote deployment.
 - Remote post-deployment verification.
 - Agency and Multisite control planes.
 - Cloud hosting or build services.
-
 ## Compatibility
 
 - WordPress 6.5+

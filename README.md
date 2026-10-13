@@ -5,11 +5,11 @@ Static WP Publisher generates and serves public WordPress pages as static HTML w
 This repository is temporarily public while the project is under active development. It is a monorepo containing both the free Core plugin and the separately distributed commercial add-on:
 
 - `plugins/static-wp-publisher`: the free WordPress.org Core plugin.
-- `plugins/static-wp-publisher-export`: the commercial portable-export add-on.
+- `plugins/static-wp-publisher-export`: the portable-export add-on. Manual exports are moving into the free plugin; this package becomes the paid Pro add-on (automatic deployment). See `docs/COMMERCIAL.md`.
 - `docs`: product, architecture, operations, and roadmap documentation.
 - `tests`: cross-package unit tests.
 
-The first public milestone includes the Core and Individual Export. Agency and Multisite are documented future add-ons.
+The first public milestone is the free plugin on WordPress.org (local static publication and manual exports), followed by the Pro add-on with automatic deployment.
 
 ## Development status
 
