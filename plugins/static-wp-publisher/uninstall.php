@@ -28,3 +28,6 @@ delete_option( 'swpp_schema_version' );
 delete_option( 'swpp_full_rebuild_recommended' );
 delete_option( 'swpp_inventory_scan' );
 delete_option( 'swpp_speed_check' );
+delete_option( 'swpp_storage_key' );
+delete_option( 'swpp_last_full_sweep' );
+delete_option( 'swpp_jobs_pruned_at' );

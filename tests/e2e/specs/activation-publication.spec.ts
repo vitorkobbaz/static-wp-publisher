@@ -45,9 +45,10 @@ test.describe
         expect(state.enabled).toBe(false);
         expect(state.directories).toEqual({
             published: true,
-            versions: true,
-            tmp: true,
-            manifests: true,
+            private_versions: true,
+            private_tmp: true,
+            public_versions: false,
+            public_tmp: false,
         });
     });
 

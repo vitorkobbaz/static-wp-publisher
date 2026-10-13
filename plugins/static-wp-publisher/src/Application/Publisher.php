@@ -73,6 +73,18 @@ final class Publisher {
 		}
 	}
 
+	/**
+	 * Removes a static copy and its history at once. Used when content stops being
+	 * public, so the old copy is gone before any background rebuild runs.
+	 */
+	public function revoke( string $url ): void {
+		try {
+			$this->storage->delete( $url );
+		} finally {
+			$this->removeArtifact( $url );
+		}
+	}
+
 	private function recordArtifact( string $url, string $path, string $hash, int $bytes, int $status ): void {
 		global $wpdb;
 		$table = $this->database->table( 'artifacts' );

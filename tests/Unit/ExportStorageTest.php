@@ -42,6 +42,48 @@ final class ExportStorageTest extends TestCase {
 		self::assertFalse( $this->storage->isPrivateLocation( $this->temporary . '/missing', array( $this->temporary ) ) );
 	}
 
+	public function testCreatesPrivateDirectory(): void {
+		$directory = $this->temporary . '/private';
+		$this->storage->ensurePrivateDirectory( $directory );
+
+		self::assertDirectoryExists( $directory );
+		if ( '\\' !== DIRECTORY_SEPARATOR ) {
+			self::assertSame( 0700, fileperms( $directory ) & 0777 );
+		}
+	}
+
+	public function testTightensPermissiveExistingDirectory(): void {
+		if ( '\\' === DIRECTORY_SEPARATOR ) {
+			self::markTestSkipped( 'POSIX permissions only.' );
+		}
+		$directory = $this->temporary . '/open';
+		mkdir( $directory, 0777 );
+		chmod( $directory, 0777 );
+		$this->storage->ensurePrivateDirectory( $directory );
+
+		self::assertSame( 0700, fileperms( $directory ) & 0777 );
+	}
+
+	public function testRejectsSymlinkInPlaceOfDirectory(): void {
+		$target = $this->temporary . '/elsewhere';
+		$link   = $this->temporary . '/link';
+		mkdir( $target );
+		if ( ! @symlink( $target, $link ) ) {
+			self::markTestSkipped( 'Symbolic links are not available here.' );
+		}
+
+		$this->expectException( \RuntimeException::class );
+		$this->storage->ensurePrivateDirectory( $link );
+	}
+
+	public function testRejectsFileInPlaceOfDirectory(): void {
+		$file = $this->temporary . '/file';
+		file_put_contents( $file, 'x' );
+
+		$this->expectException( \RuntimeException::class );
+		$this->storage->ensurePrivateDirectory( $file );
+	}
+
 	private function removeTree( string $directory ): void {
 		if ( ! is_dir( $directory ) ) {
 			return;

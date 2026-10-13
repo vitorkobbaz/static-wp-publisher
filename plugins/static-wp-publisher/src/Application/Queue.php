@@ -333,6 +333,28 @@ final class Queue {
 		return false === $result ? 0 : (int) $result;
 	}
 
+	/**
+	 * Finished jobs are history: only the latest job of each URL is shown anywhere, so
+	 * older finished rows are removed (at most hourly) to keep the table bounded.
+	 */
+	public function maybePruneHistory(): int {
+		$last = (int) get_option( 'swpp_jobs_pruned_at', 0 );
+		if ( time() - $last < HOUR_IN_SECONDS ) {
+			return 0;
+		}
+		update_option( 'swpp_jobs_pruned_at', time(), false );
+		return $this->pruneHistory();
+	}
+
+	public function pruneHistory(): int {
+		global $wpdb;
+		$table  = $this->database->table( 'jobs' );
+		$result = $wpdb->query(
+			"DELETE job FROM {$table} job INNER JOIN (SELECT url_hash, MAX(id) AS id FROM {$table} GROUP BY url_hash) latest ON latest.url_hash = job.url_hash WHERE job.id < latest.id AND job.status IN ('succeeded','skipped','failed')" // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		);
+		return false === $result ? 0 : (int) $result;
+	}
+
 	/** @return array<string,int> */
 	public function counts(): array {
 		global $wpdb;

@@ -152,6 +152,26 @@ final class HtmlOptimizerTest extends TestCase {
 		self::assertStringNotContainsString( 'one.css?ver=1', $out );
 	}
 
+	public function test_stylesheet_combination_is_bounded_per_bundle_and_per_page(): void {
+		$base = self::SITE . '/wp-content/plugins/p/css/';
+		$big  = '.x{color:red}' . str_repeat( ' ', 102400 );
+		$head = '';
+		for ( $i = 0; $i < 70; ++$i ) {
+			// Query aliases of one file must not multiply what is read.
+			$head .= '<link rel="stylesheet" href="' . $base . 'big.css?v=' . $i . '">' . "\n";
+		}
+		$this->stored = array();
+		$out          = ( new HtmlOptimizer() )->optimize( self::page( $head, '<p>x</p>' ), new OptimizerOptions( false, true ), $this->assets( array( $base . 'big.css' => $big ) ) );
+
+		self::assertNotEmpty( $this->stored );
+		$total = 0;
+		foreach ( $this->stored as $bundle ) {
+			self::assertLessThanOrEqual( HtmlOptimizer::MAX_SHEETS_PER_BUNDLE, substr_count( $bundle, '.x{color:red}' ) );
+			$total += strlen( $bundle );
+		}
+		self::assertLessThanOrEqual( HtmlOptimizer::MAX_CSS_BYTES_PER_PAGE + 70 * 200, $total );
+		self::assertStringContainsString( 'big.css?v=69"', $out );
+	}
 	public function test_optimized_output_is_left_alone_and_disabled_options_change_nothing(): void {
 		$page = self::page( '', '<img src="a.png"><img src="b.png"><img src="c.png">' );
 		$once = ( new HtmlOptimizer() )->optimize( $page . '<link data-swpp-opt="preload">', new OptimizerOptions(), $this->assets() );

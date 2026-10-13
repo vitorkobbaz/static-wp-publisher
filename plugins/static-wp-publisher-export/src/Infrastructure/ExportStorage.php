@@ -30,10 +30,13 @@ final class ExportStorage {
 			throw new RuntimeException( 'The configured export directory is publicly accessible. Configure swpp_export_private_base_dir outside the web document root.' );
 		}
 
-		$install_id = substr( hash( 'sha256', $this->normalize( ABSPATH ) ), 0, 16 );
-		$root       = rtrim( $base, '/\\' ) . '/static-wp-publisher-exports/install-' . $install_id . '/site-' . get_current_blog_id();
-		if ( ! is_dir( $root ) && ! wp_mkdir_p( $root ) ) {
-			throw new RuntimeException( 'Unable to create the private export directory.' );
+		// The base is often a shared temp directory. Everything below it is created by this
+		// process with mode 0700 under an unguessable name and re-verified on every use,
+		// so another local account can neither pre-create nor swap any part of the path.
+		$root = rtrim( $base, '/\\' );
+		foreach ( array( 'swpp-exports-' . $this->installKey(), 'site-' . get_current_blog_id() ) as $component ) {
+			$root .= '/' . $component;
+			$this->ensurePrivateDirectory( $root );
 		}
 
 		$root = realpath( $root );
@@ -42,10 +45,6 @@ final class ExportStorage {
 		}
 		if ( ! $this->isPrivateLocation( $root, $public_roots ) ) {
 			throw new RuntimeException( 'The configured export directory is publicly accessible. Configure swpp_export_private_base_dir outside the web document root.' );
-		}
-
-		if ( '\\' !== DIRECTORY_SEPARATOR && ! chmod( $root, 0700 ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_chmod -- Private application storage permissions.
-			throw new RuntimeException( 'Unable to secure the private export directory permissions.' );
 		}
 		if ( ! wp_next_scheduled( self::CLEANUP_HOOK ) ) {
 			wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', self::CLEANUP_HOOK );
@@ -107,6 +106,55 @@ final class ExportStorage {
 			}
 		}
 		return true;
+	}
+
+	/**
+	 * Creates a directory owned by this process with mode 0700, or verifies an existing
+	 * one: it must be a real directory (not a symlink) and, on POSIX systems, owned by
+	 * this process and not writable by group or others.
+	 */
+	public function ensurePrivateDirectory( string $directory ): void {
+		if ( ! file_exists( $directory ) && ! is_link( $directory ) ) {
+			$previous = umask( 0077 );
+			$created  = @mkdir( $directory, 0700 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged,WordPress.WP.AlternativeFunctions.file_system_operations_mkdir -- Private application storage; a concurrent creator is verified below.
+			umask( $previous );
+			if ( ! $created && ! is_dir( $directory ) ) {
+				throw new RuntimeException( 'Unable to create the private export directory.' );
+			}
+		}
+		if ( is_link( $directory ) || ! is_dir( $directory ) ) {
+			throw new RuntimeException( 'The private export directory is not a real directory.' );
+		}
+		if ( '\\' === DIRECTORY_SEPARATOR ) {
+			return; // Windows relies on the base directory's ACLs.
+		}
+		clearstatcache( true, $directory );
+		$owner = fileowner( $directory );
+		if ( function_exists( 'posix_geteuid' ) && posix_geteuid() !== $owner ) {
+			throw new RuntimeException( 'The private export directory is owned by another account.' );
+		}
+		$mode = fileperms( $directory );
+		if ( false === $mode || 0 !== ( $mode & 0077 ) ) {
+			if ( ! chmod( $directory, 0700 ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_chmod -- Private application storage permissions.
+				throw new RuntimeException( 'Unable to secure the private export directory permissions.' );
+			}
+		}
+	}
+
+	/** Random per-install name for the top export directory, so it cannot be pre-created. */
+	private function installKey(): string {
+		$key = get_site_option( 'swpp_export_storage_key', '' );
+		if ( is_string( $key ) && 1 === preg_match( '~^[a-f0-9]{32}$~', $key ) ) {
+			return $key;
+		}
+		$key = bin2hex( random_bytes( 16 ) );
+		if ( ! add_site_option( 'swpp_export_storage_key', $key ) ) {
+			$key = (string) get_site_option( 'swpp_export_storage_key', '' );
+			if ( 1 !== preg_match( '~^[a-f0-9]{32}$~', $key ) ) {
+				throw new RuntimeException( 'Unable to establish the private export directory name.' );
+			}
+		}
+		return $key;
 	}
 
 	/** @return list<string> */
