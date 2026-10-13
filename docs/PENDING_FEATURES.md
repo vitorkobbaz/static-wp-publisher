@@ -1,6 +1,6 @@
 # Pending functionality
 
-This document separates the implemented Core + Individual Export MVP from work still required before a production commercial release.
+This document separates what is implemented from work still required before the WordPress.org release of the free plugin and the launch of the Pro add-on. The commercial model is in `COMMERCIAL.md`.
 
 ## Release blockers
 
@@ -12,9 +12,10 @@ This document separates the implemented Core + Individual Export MVP from work s
   5. Playwright crawl of the extracted package: HTTP status, internal navigation, images/`srcset`/CSS/fonts/backgrounds, `noindex` in relocatable mode, manifest checksums, absence of PHP/`wp-config`/`.env`/traversal/sensitive files, and zero requests to the original WordPress.
   6. The same flow for a domain/subdirectory-targeted publishable export.
 - Add reproducible performance and scale benchmarks, including the 100,000-URL inventory target and static TTFB below 200 ms under documented conditions.
-- Complete Freemius production onboarding: product identifiers, signed SDK bootstrap, seven-day trial, 72/24-hour reminders, 30-day entitlement cache, update delivery, renewal, and expiration scenarios.
+- Move manual exports from the add-on into the free plugin and remove the entitlement gate (WordPress.org guideline 5 forbids locked features).
+- Complete Freemius production onboarding for the Pro add-on only: product identifiers, SDK bootstrap, 14-day trial without card, update delivery, renewal, and expiration scenarios.
 - Complete legal review for commercial terms, privacy, trial/no-refund language, trademark use, and the dedicated security contact.
-- Add release packaging, signing/checksums, translation catalogs, and the WordPress.org submission pipeline for Core.
+- Add release packaging, signing/checksums, translation catalogs, Plugin Check, and the WordPress.org submission and SVN deploy pipeline for the free plugin.
 
 ## Core follow-up
 
@@ -23,8 +24,6 @@ This document separates the implemented Core + Individual Export MVP from work s
 - Show archive/term pages as rows of the dashboard list with a type filter. Today they appear only under "Other addresses" when their latest generation failed.
 - Persist a URL index for the dashboard so tabs, counters, and search scale past the 2,000-item analysis window (`swpp_dashboard_item_limit`) toward the 100,000-URL target.
 - Per-page "Always serve with WordPress" exclusion (row and bulk action). This is useful for pages whose forms depend on expiring nonces.
-
-- Enforce the free-tier limit of 10 published pages. The monetization model defines it, but the current `Inventory`/`Eligibility` code does not apply any page cap yet.
 
 - Add reviewed Apache, Nginx, and IIS direct-file profiles plus configuration validation. The implemented PHP fallback is safe but still boots WordPress.
 - Expose retained versions through an administrator rollback UI, REST operation, and WP-CLI command. Atomic version snapshots already exist as the underlying primitive.
@@ -41,16 +40,16 @@ This document separates the implemented Core + Individual Export MVP from work s
 - Sweep combined-CSS bundles that no static copy references any more. They are content-addressed and only accumulate when CSS changes.
 - Promote "Combine CSS files" from experimental after real-site feedback, possibly with an automated before/after visual comparison in the admin.
 
-## Individual Export follow-up
+## Export follow-up
 
-- Add incremental/differential package generation; the MVP currently produces complete directory and ZIP exports.
+- Add incremental/differential package generation (Pro); the free plugin produces complete directory and ZIP exports.
 - Add selectable Apache, Nginx, IIS, and generic-static-host deployment profiles, including redirect and real-404 configuration files.
 - Add streaming/split archive strategies and disk-space estimation for very large packages.
-- Add a commercial update channel and customer-facing license/trial screens after Freemius credentials are available.
+- Pro: deployment targets (SFTP, S3-compatible, Netlify), incremental deployment on publication, encrypted target credentials, and license/trial screens after Freemius credentials are available.
 
 ## Later add-ons
 
 - Agency add-on: portfolio operations, reusable profiles, white-label reports, and agency licensing.
 - Multisite add-on: network policies, per-site queues, domain mapping, and network-aware CLI.
 
-Cloud hosting, remote deployment, remote verification, SEO analysis, and LLM-discovery functionality remain outside the approved scope.
+Remote deployment is Pro scope. Cloud hosting, remote verification, SEO analysis, and LLM-discovery functionality remain outside the approved scope.

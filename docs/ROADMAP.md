@@ -4,8 +4,8 @@ No dates in this roadmap are promises.
 
 ## In development
 
-- Core local static publication MVP.
-- Individual Export MVP.
+- Free plugin 1.0 for WordPress.org: local static publication plus manual directory/ZIP exports.
+- Pro add-on MVP: automatic and incremental deployment to SFTP, S3-compatible storage, and Netlify.
 
 ## Planned
 
@@ -13,8 +13,9 @@ No dates in this roadmap are promises.
 - Advanced server-rule validation and pre-compression.
 - Certified WPML, Polylang, and TranslatePress combinations.
 - WooCommerce catalog export refinements.
-- Agency add-on: multi-site portfolio operations, reusable profiles, white-label reports, and priority workflows.
-- Multisite add-on: network policies, per-site queues, domain mapping, and network-aware CLI.
+- Pro: GitHub and Cloudflare Pages targets, static forms and search.
+- Pro: multi-site portfolio operations, reusable profiles, and white-label reports for agencies.
+- Pro: Multisite network policies, per-site queues, domain mapping, and network-aware CLI.
 - Headless-browser rendering module.
 
 ## Explicitly not planned now
