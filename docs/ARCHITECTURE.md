@@ -3,8 +3,8 @@
 ## Packages
 
 - Core owns capture, eligibility, storage, invalidation, queueing, publication, local serving, REST, CLI, and extension contracts.
-- Export owns portability, rewriting, package manifests, ZIP generation, and commercial entitlement integration.
-- Future Agency and Multisite add-ons consume the same public contracts.
+- Export owns portability, rewriting, package manifests, and ZIP generation.
+- The Pro add-on (automatic deployment, licensing) consumes the same public contracts; the free plugin contains no licensing code.
 
 ## Publication flow
 
