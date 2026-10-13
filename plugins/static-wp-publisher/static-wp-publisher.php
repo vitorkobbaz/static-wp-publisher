@@ -3,7 +3,7 @@
  * Plugin Name:       Static WP Publisher
  * Plugin URI:        https://static-wp-publisher.vitorkobbaz.com
  * Description:       Generates and serves public WordPress pages as safe, automatically refreshed static HTML.
- * Version:           0.1.0
+ * Version:           1.0.0
  * Requires at least: 6.5
  * Requires PHP:      8.3
  * Author:            Kobbaz Estudio
@@ -22,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'SWPP_VERSION', '0.1.0' );
+define( 'SWPP_VERSION', '1.0.0' );
 define( 'SWPP_FILE', __FILE__ );
 define( 'SWPP_DIR', plugin_dir_path( __FILE__ ) );
 

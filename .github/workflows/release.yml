@@ -1,0 +1,76 @@
+name: Release
+
+# Builds the free plugin package on every pull request and push to main, runs the
+# official Plugin Check on it, and on a v* tag attaches the ZIP to a GitHub release
+# and (once the plugin is approved and the SVN secrets exist) deploys to WordPress.org.
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Package and Plugin Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: zip
+          coverage: none
+      - name: Build package
+        run: php tools/build-plugin.php
+      - name: Unpack for Plugin Check
+        run: |
+          mkdir -p build
+          unzip -q dist/static-wp-publisher-*.zip -d build
+      - name: Plugin Check
+        uses: WordPress/plugin-check-action@v1
+        with:
+          build-dir: build/static-wp-publisher
+      - uses: actions/upload-artifact@v4
+        with:
+          name: static-wp-publisher
+          path: dist/*.zip
+
+  release:
+    name: GitHub release and WordPress.org deploy
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
+      SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check tag matches plugin version
+        run: |
+          version=$(sed -n "s/^Stable tag:[[:space:]]*//p" plugins/static-wp-publisher/readme.txt)
+          test "v${version}" = "${GITHUB_REF_NAME}"
+      - uses: actions/download-artifact@v4
+        with:
+          name: static-wp-publisher
+          path: dist
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/*.zip --title "$GITHUB_REF_NAME" --generate-notes
+      - name: Unpack for WordPress.org
+        run: |
+          mkdir -p build
+          unzip -q dist/static-wp-publisher-*.zip -d build
+      - name: WordPress.org deploy
+        if: ${{ env.SVN_USERNAME != '' }}
+        env:
+          SLUG: static-wp-publisher
+          BUILD_DIR: build/static-wp-publisher
+          ASSETS_DIR: .wordpress-org
+        uses: 10up/action-wordpress-plugin-deploy@stable
