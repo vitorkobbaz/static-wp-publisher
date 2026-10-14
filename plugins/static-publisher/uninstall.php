@@ -1,0 +1,35 @@
+<?php
+/**
+ * Optional uninstall cleanup.
+ *
+ * @package StaticWPPublisher
+ */
+
+declare(strict_types=1);
+
+if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
+	exit;
+}
+
+$swpp_settings = get_option( 'swpp_settings', array() );
+if ( empty( $swpp_settings['delete_on_uninstall'] ) ) {
+	return;
+}
+
+global $wpdb;
+foreach ( array( 'swpp_jobs', 'swpp_builds', 'swpp_artifacts' ) as $swpp_suffix ) {
+	$swpp_table = $wpdb->prefix . $swpp_suffix;
+	$wpdb->query( "DROP TABLE IF EXISTS `{$swpp_table}`" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter, WordPress.DB.DirectDatabaseQuery.SchemaChange -- Plugin-owned custom tables. Table names come from $wpdb->prefix; values are prepared.
+}
+
+delete_option( 'swpp_settings' );
+delete_option( 'swpp_redirects' );
+delete_option( 'swpp_schema_version' );
+delete_option( 'swpp_full_rebuild_recommended' );
+delete_option( 'swpp_inventory_scan' );
+delete_option( 'swpp_speed_check' );
+delete_option( 'swpp_storage_key' );
+delete_site_option( 'swpp_export_storage_key' );
+delete_metadata( 'user', 0, 'swpp_pro_panel_dismissed', '', true );
+delete_option( 'swpp_last_full_sweep' );
+delete_option( 'swpp_jobs_pruned_at' );

@@ -6,7 +6,7 @@ type BatchFixture = { pages: { id: number; url: string }[] };
 type TemplateFixture = { id: number; url: string };
 type ArtifactRows = { artifacts: { url: string }[] };
 
-const DASHBOARD = "/wp-admin/admin.php?page=static-wp-publisher";
+const DASHBOARD = "/wp-admin/admin.php?page=static-publisher";
 const home = `${(process.env.WP_E2E_BASE_URL ?? "http://localhost").replace(/\/+$/, "")}/`;
 
 function row(page: Page, url: string) {

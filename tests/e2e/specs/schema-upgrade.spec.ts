@@ -65,7 +65,7 @@ test.describe.serial("Schema upgrade from v1 to v2", () => {
         await test.step("the first web request upgrades and keeps serving v1 artifacts", async () => {
             const response = await request.get(pages.a);
             expect(response.ok()).toBe(true);
-            expect(response.headers()["x-static-wp-publisher"]).toBe("HIT");
+            expect(response.headers()["x-static-publisher"]).toBe("HIT");
             expect(await response.text()).toContain('data-swpp-e2e="legacy"');
         });
 
@@ -181,7 +181,7 @@ test.describe.serial("Schema upgrade from v1 to v2", () => {
 
         await test.step("the refreshed artifact replaces the v1 copy", async () => {
             const response = await request.get(pages.a);
-            expect(response.headers()["x-static-wp-publisher"]).toBe("HIT");
+            expect(response.headers()["x-static-publisher"]).toBe("HIT");
             const body = await response.text();
             expect(body).toContain('data-swpp-e2e="upgrade-a"');
             expect(body).not.toContain('data-swpp-e2e="legacy"');

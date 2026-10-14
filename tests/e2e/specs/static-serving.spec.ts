@@ -51,31 +51,31 @@ test.describe
         parseFixtureJson(runWp(["swpp-e2e", "enable"]));
 
         const plain = await request.get(home);
-        expect(plain.headers()["x-static-wp-publisher"]).toBe("HIT");
+        expect(plain.headers()["x-static-publisher"]).toBe("HIT");
 
         const tracked = await request.get(
             `${home}?utm_source=e2e&utm_campaign=launch&fbclid=abc`,
         );
-        expect(tracked.headers()["x-static-wp-publisher"]).toBe("HIT");
+        expect(tracked.headers()["x-static-publisher"]).toBe("HIT");
 
         const search = await request.get(`${home}?s=swppsearchterm`);
         expect(search.ok()).toBe(true);
-        expect(search.headers()["x-static-wp-publisher"]).toBeUndefined();
+        expect(search.headers()["x-static-publisher"]).toBeUndefined();
         expect(await search.text()).toContain("swppsearchterm");
 
         const mixed = await request.get(`${home}?utm_source=e2e&s=swppmixed`);
-        expect(mixed.headers()["x-static-wp-publisher"]).toBeUndefined();
+        expect(mixed.headers()["x-static-publisher"]).toBeUndefined();
         expect(await mixed.text()).toContain("swppmixed");
 
         const byId = await request.get(`${home}?p=${page.id}`, {
             maxRedirects: 0,
         });
-        expect(byId.headers()["x-static-wp-publisher"]).toBeUndefined();
+        expect(byId.headers()["x-static-publisher"]).toBeUndefined();
 
         const pageStatic = await request.get(page.url);
-        expect(pageStatic.headers()["x-static-wp-publisher"]).toBe("HIT");
+        expect(pageStatic.headers()["x-static-publisher"]).toBe("HIT");
         const pageDynamic = await request.get(`${page.url}?preview=true`);
-        expect(pageDynamic.headers()["x-static-wp-publisher"]).toBeUndefined();
+        expect(pageDynamic.headers()["x-static-publisher"]).toBeUndefined();
     });
 
     test("a page that gains a password loses its static copy and is not retried", async ({
@@ -88,7 +88,7 @@ test.describe
         await processQueue(request);
         parseFixtureJson(runWp(["swpp-e2e", "enable"]));
         const before = await request.get(page.url);
-        expect(before.headers()["x-static-wp-publisher"]).toBe("HIT");
+        expect(before.headers()["x-static-publisher"]).toBe("HIT");
         expect(await before.text()).toContain('data-swpp-e2e="batch-1"');
 
         parseFixtureJson(
@@ -107,7 +107,7 @@ test.describe
         expect(latest?.active_hash).toBeNull();
 
         const after = await request.get(page.url);
-        expect(after.headers()["x-static-wp-publisher"]).toBeUndefined();
+        expect(after.headers()["x-static-publisher"]).toBeUndefined();
         const body = await after.text();
         expect(body).toContain('name="post_password"');
         expect(body).not.toContain('data-swpp-e2e="batch-1"');

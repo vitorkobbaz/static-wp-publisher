@@ -10,7 +10,7 @@ define( 'SWPP_DIR', __DIR__ . '/' );
 if ( ! defined( 'WPINC' ) ) {
 	define( 'WPINC', 'wp-includes' );
 }
-define( 'SWPP_VERSION', '0.1.0' );
+define( 'SWPP_VERSION', '1.0.0' );
 
 if ( ! class_exists( 'WP_CLI' ) ) {
 	final class WP_CLI {

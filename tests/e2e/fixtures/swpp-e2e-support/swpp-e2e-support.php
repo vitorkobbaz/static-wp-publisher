@@ -1,7 +1,7 @@
 <?php
 /**
- * Plugin Name: Static WP Publisher E2E Support
- * Description: Test-only WP-CLI controls for the Static WP Publisher E2E suite.
+ * Plugin Name: Static Publisher E2E Support
+ * Description: Test-only WP-CLI controls for the Static Publisher E2E suite.
  * Version: 0.1.0
  * Requires PHP: 8.3
  *
@@ -91,7 +91,7 @@ add_filter(
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
 	final class SWPP_E2E_Command {
-		private const CORE_PLUGIN = 'static-wp-publisher/static-wp-publisher.php';
+		private const CORE_PLUGIN = 'static-publisher/static-publisher.php';
 
 		private const UPGRADE_PAGE_PREFIX = 'swpp-e2e-upgrade-';
 
@@ -176,7 +176,7 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 				array(
 					'post_type'    => 'page',
 					'post_status'  => 'publish',
-					'post_title'   => 'Static WP Publisher E2E',
+					'post_title'   => 'Static Publisher E2E',
 					'post_name'    => 'swpp-e2e-page',
 					'post_content' => sprintf( '<p data-swpp-e2e="%1$s">SWPP E2E %1$s</p>', esc_attr( $marker ) ),
 				),

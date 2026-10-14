@@ -55,7 +55,7 @@ The Static Publisher screen is a read model (`StatusReport`) over the queue, the
   - Without JavaScript, the same actions go through admin-post (row) or the list-table request (bulk, up to 50 items).
 - **Generation.** "Generate all pages now" runs `/swpp/v1/build`, then `/swpp/v1/process` passes with a progress bar. "Process pending now" runs only the process passes. While jobs are queued or running, the screen polls `/swpp/v1/status` and reloads when they finish, unless the user is selecting rows or an action is running.
 - **Row actions** accept a content ID (0 = home page), never a URL or path. The ID must resolve to published, visitor-facing content.
-- **Verification.** "Check delivery" performs an anonymous loopback request without cookies. It reports whether the `X-Static-WP-Publisher: HIT` header came back, with the HTTP status and timing.
+- **Verification.** "Check delivery" performs an anonymous loopback request without cookies. It reports whether the `X-Static-Publisher: HIT` header came back, with the HTTP status and timing.
 
 ## Speed optimizations in static copies
 

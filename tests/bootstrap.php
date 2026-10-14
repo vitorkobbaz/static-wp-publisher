@@ -7,4 +7,10 @@ if ( ! function_exists( 'sanitize_file_name' ) ) {
 	}
 }
 
+if ( ! function_exists( 'esc_html' ) ) {
+	function esc_html( string $text ): string {
+		return htmlspecialchars( $text, ENT_QUOTES, 'UTF-8' );
+	}
+}
+
 require dirname( __DIR__ ) . '/vendor/autoload.php';
