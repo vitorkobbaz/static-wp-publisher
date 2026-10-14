@@ -154,7 +154,7 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 					'cron'          => false !== wp_next_scheduled( 'swpp_process_queue' ),
 					'enabled'       => ! empty( $settings['enabled'] ),
 					'directories'   => array(
-						'published'       => is_dir( $root . '/published' ),
+						'published'       => is_dir( $private . '/published' ),
 						'private_versions' => is_dir( $private . '/versions' ),
 						'private_tmp'      => is_dir( $private . '/tmp' ),
 						'public_versions'  => is_dir( $root . '/versions' ),
@@ -410,8 +410,7 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 				ARRAY_A
 			);
 
-			$uploads = wp_upload_dir();
-			$path    = is_array( $row ) ? trailingslashit( (string) $uploads['basedir'] ) . 'static-wp-publisher/site-' . get_current_blog_id() . '/published/' . $row['relative_path'] : '';
+			$path = is_array( $row ) ? ( new \SWPP\Core\Infrastructure\Storage() )->publishedRoot() . '/' . $row['relative_path'] : '';
 			$this->json(
 				array(
 					'exists'  => '' !== $path && is_file( $path ),

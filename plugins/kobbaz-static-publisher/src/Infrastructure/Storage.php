@@ -14,6 +14,8 @@ use SWPP\Core\Domain\UrlPath;
 
 final class Storage {
 	private const KEY_OPTION      = 'swpp_storage_key';
+	private const LAYOUT_OPTION   = 'swpp_storage_layout';
+	private const LAYOUT          = 2;
 	private const MAX_VERSIONS    = 20;
 	private const MAX_ASSET_FILES = 500;
 	private const MAX_ASSET_BYTES = 104857600;
@@ -26,14 +28,21 @@ final class Storage {
 		return trailingslashit( (string) $uploads['basedir'] ) . 'static-wp-publisher/site-' . get_current_blog_id();
 	}
 
+	/**
+	 * Static copies are only served through LocalServer, which checks the current route
+	 * and its visibility first. They live in the private directory so a copy that
+	 * outlives a withdrawal (a failed delete, a deactivated plugin) can never be
+	 * requested by its uploads address, which would skip that check.
+	 */
 	public function publishedRoot(): string {
-		return $this->root() . '/published';
+		return $this->privateRoot() . '/published';
 	}
 
 	/**
-	 * Working files and page history live in a directory named after a random per-site
-	 * secret, so they cannot be requested by address on any web server. The generated
-	 * deny rules (Apache and IIS) and empty index files are defence in depth only.
+	 * Working files, static copies and page history live in a directory named after a
+	 * random per-site secret, so they cannot be requested by address on any web server.
+	 * The generated deny rules (Apache and IIS) and empty index files are defence in
+	 * depth only.
 	 */
 	public function privateRoot(): string {
 		$key = get_option( self::KEY_OPTION, '' );
@@ -51,13 +60,33 @@ final class Storage {
 
 	public function ensureStructure(): void {
 		$private = $this->privateRoot();
-		foreach ( array( $this->publishedRoot(), $private . '/versions', $private . '/tmp' ) as $directory ) {
+		foreach ( array( $private . '/versions', $private . '/tmp' ) as $directory ) {
 			if ( ! is_dir( $directory ) && ! wp_mkdir_p( $directory ) ) {
 				throw new RuntimeException( 'Unable to create Static Publisher storage.' );
 			}
 		}
 		$this->protect( $private );
 		$this->retireLegacyDirectories( $private );
+		if ( ! is_dir( $this->publishedRoot() ) && ! wp_mkdir_p( $this->publishedRoot() ) ) {
+			throw new RuntimeException( 'Unable to create Static Publisher storage.' );
+		}
+	}
+
+	/**
+	 * Moves storage written by an earlier layout once, without waiting for the next
+	 * publication. Afterwards it costs one autoloaded option read.
+	 */
+	public function maybeMigrate(): void {
+		if ( (int) get_option( self::LAYOUT_OPTION, 0 ) >= self::LAYOUT ) {
+			return;
+		}
+		if ( ! is_dir( $this->root() ) ) {
+			// Nothing stored yet: the current layout is created on first use.
+			update_option( self::LAYOUT_OPTION, self::LAYOUT, true );
+			return;
+		}
+		$this->ensureStructure();
+		update_option( self::LAYOUT_OPTION, self::LAYOUT, true );
 	}
 
 	public function pathForUrl( string $url ): string {
@@ -219,11 +248,17 @@ final class Storage {
 	}
 
 	/**
-	 * Earlier versions kept history and working files in predictable directories that
-	 * only Apache was told to protect. History moves into the private directory and the
-	 * old working directory is removed.
+	 * Earlier versions kept static copies, history and working files in predictable
+	 * directories that only Apache was told to protect, or not at all. Copies and history
+	 * move into the private directory and the old working directory is removed.
 	 */
 	private function retireLegacyDirectories( string $private_root ): void {
+		$legacy_published = $this->root() . '/published';
+		if ( is_dir( $legacy_published ) && ! is_link( $legacy_published ) ) {
+			if ( is_dir( $private_root . '/published' ) || ! @rename( $legacy_published, $private_root . '/published' ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.rename_rename -- Plugin storage inside uploads.
+				$this->removeTree( $legacy_published );
+			}
+		}
 		$legacy_versions = $this->root() . '/versions';
 		if ( is_dir( $legacy_versions ) && ! is_link( $legacy_versions ) && ! is_dir( $private_root . '/versions-legacy' ) ) {
 			if ( ! @rename( $legacy_versions, $private_root . '/versions-legacy' ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.rename_rename -- Atomic replace inside plugin storage in uploads.

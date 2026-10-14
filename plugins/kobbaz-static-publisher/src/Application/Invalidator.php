@@ -171,6 +171,9 @@ final class Invalidator {
 	}
 
 	private function revoke( string $url ): void {
+		// Before the delete: a worker that checks its lease after writing either sees it
+		// gone and removes its own copy, or wrote early enough for the delete to remove it.
+		$this->queue->supersede( $url );
 		if ( null === $this->publisher ) {
 			return;
 		}

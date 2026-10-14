@@ -51,6 +51,50 @@ final class Queue {
 		return 1 === $inserted;
 	}
 
+	/**
+	 * Takes the lease away from a job that is generating this URL right now and makes it
+	 * pending again. Called when content is withdrawn: the running worker may already hold
+	 * the old public response, and without this its later write would bring it back. The
+	 * job runs again afterwards and sees the new state.
+	 */
+	public function supersede( string $url ): void {
+		global $wpdb;
+		$url = esc_url_raw( $url, array( 'http', 'https' ) );
+		if ( '' === $url ) {
+			return;
+		}
+		$now = current_time( 'mysql', true );
+		$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Plugin-owned custom tables.
+			$this->database->table( 'jobs' ),
+			array(
+				'status'       => 'pending',
+				'available_at' => $now,
+				'locked_at'    => null,
+				'locked_by'    => null,
+				'updated_at'   => $now,
+			),
+			array(
+				'url_hash' => hash( 'sha256', $url ),
+				'status'   => 'running',
+			),
+			array( '%s', '%s', '%s', '%s', '%s' ),
+			array( '%s', '%s' )
+		);
+	}
+
+	/** Whether the job still holds its lease, i.e. it was not superseded or recovered. */
+	public function holdsLease( QueueJob $job ): bool {
+		global $wpdb;
+		$table = $this->database->table( 'jobs' );
+		return null !== $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned custom tables. Table names come from $wpdb->prefix; values are prepared.
+			$wpdb->prepare(
+				"SELECT id FROM {$table} WHERE id = %d AND status = 'running' AND locked_by = %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$job->id,
+				$job->lockToken
+			)
+		);
+	}
+
 	public function claim(): ?QueueJob {
 		global $wpdb;
 		if ( ! $this->staleJobsRecovered ) {

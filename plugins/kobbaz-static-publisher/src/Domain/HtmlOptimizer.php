@@ -28,6 +28,9 @@ final class HtmlOptimizer {
 	/** Most stylesheet bytes read for one page; later sheets are left as they are. */
 	public const MAX_CSS_BYTES_PER_PAGE = 4194304;
 
+	/** Most distinct image files read for missing dimensions on one page. */
+	public const MAX_IMAGE_PROBES_PER_PAGE = 100;
+
 	private int $cssBytes = 0;
 
 	/** @var list<array{type:string,html:string,name:string,closing:bool}> */
@@ -38,6 +41,9 @@ final class HtmlOptimizer {
 	/** @var array<string,?string> */
 	private array $cssCache = array();
 
+	/** @var array<string,array{0:int,1:int}|null> */
+	private array $imageSizes = array();
+
 	public function optimize( string $html, OptimizerOptions $options, OptimizerAssets $assets ): string {
 		if ( ! $options->optimize && ! $options->combineCss ) {
 			return $html;
@@ -45,9 +51,10 @@ final class HtmlOptimizer {
 		if ( str_contains( $html, self::MARKER ) ) {
 			return $html;
 		}
-		$this->assets   = $assets;
-		$this->cssCache = array();
-		$this->cssBytes = 0;
+		$this->assets     = $assets;
+		$this->cssCache   = array();
+		$this->cssBytes   = 0;
+		$this->imageSizes = array();
 		$this->tokenize( $html );
 
 		$head_open  = $this->find( 'head', false );
@@ -155,7 +162,7 @@ final class HtmlOptimizer {
 				$tag->set( 'decoding', 'async' );
 			}
 			if ( ! $tag->has( 'width' ) && ! $tag->has( 'height' ) ) {
-				$size = $this->assets->imageSize( $src );
+				$size = $this->imageSize( $src );
 				if ( null !== $size ) {
 					$tag->set( 'width', (string) $size[0] );
 					$tag->set( 'height', (string) $size[1] );
@@ -165,6 +172,23 @@ final class HtmlOptimizer {
 			++$position;
 		}
 		return $preloads;
+	}
+
+	/**
+	 * Each image file is read once per page, and only up to a fixed number of files, so
+	 * repeating images in the content cannot multiply file reads.
+	 *
+	 * @return array{0:int,1:int}|null
+	 */
+	private function imageSize( string $src ): ?array {
+		if ( array_key_exists( $src, $this->imageSizes ) ) {
+			return $this->imageSizes[ $src ];
+		}
+		if ( count( $this->imageSizes ) >= self::MAX_IMAGE_PROBES_PER_PAGE ) {
+			return null;
+		}
+		$this->imageSizes[ $src ] = $this->assets->imageSize( $src );
+		return $this->imageSizes[ $src ];
 	}
 
 	/**

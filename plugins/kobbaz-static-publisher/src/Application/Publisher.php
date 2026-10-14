@@ -17,6 +17,8 @@ use SWPP\Core\Infrastructure\Renderer;
 use SWPP\Core\Infrastructure\Storage;
 
 final class Publisher {
+	private const SUPERSEDED = 'The content changed while it was being generated; it is queued again.';
+
 	public function __construct(
 		private readonly Renderer $renderer,
 		private readonly Storage $storage,
@@ -24,7 +26,11 @@ final class Publisher {
 		private readonly ?PageOptimizer $optimizer = null,
 	) {}
 
-	public function publish( string $url ): PublishResult {
+	/**
+	 * @param (callable():bool)|null $isCurrent Whether the job may still publish. Checked
+	 *        after the write, so a withdrawal during rendering cannot be undone by it.
+	 */
+	public function publish( string $url, ?callable $isCurrent = null ): PublishResult {
 		$response = $this->renderer->render( $url );
 		if ( is_wp_error( $response ) ) {
 			return new PublishResult( false, $response->get_error_message() );
@@ -60,13 +66,27 @@ final class Publisher {
 			$location          = $response['headers']['location'] ?? '';
 			$redirects[ $url ] = is_array( $location ) ? (string) reset( $location ) : $location;
 			update_option( 'swpp_redirects', $redirects, false );
+			// The address now redirects: an older copy must not keep answering for it.
+			try {
+				$this->storage->delete( $url );
+				$this->removeArtifact( $url );
+			} catch ( Throwable $error ) {
+				return new PublishResult( false, $error->getMessage() );
+			}
 			return new PublishResult( true, 'Redirect recorded.' );
 		}
 
 		try {
 			$body = null === $this->optimizer ? $response['body'] : $this->optimizer->optimize( $response['body'] );
+			if ( null !== $isCurrent && ! $isCurrent() ) {
+				return new PublishResult( false, self::SUPERSEDED );
+			}
 			$file = $this->storage->write( $url, $body );
 			$this->recordArtifact( $url, $file['relative'], $file['hash'], $file['bytes'], $response['status'] );
+			if ( null !== $isCurrent && ! $isCurrent() ) {
+				$this->revoke( $url );
+				return new PublishResult( false, self::SUPERSEDED );
+			}
 			// Lets deployment add-ons send only what changed.
 			do_action( 'swpp_artifact_published', $url, $file['relative'], $file['hash'] );
 			return new PublishResult( true, 'Published.', $file['relative'], $file['hash'] );

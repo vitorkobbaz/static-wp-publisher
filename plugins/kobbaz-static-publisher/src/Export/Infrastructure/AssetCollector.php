@@ -22,24 +22,34 @@ final class AssetCollector {
 	/** @var array<string,true> */
 	private array $seen = array();
 
+	/** @var array<string,bool> Anonymous readability of upload files, by source path. */
+	private array $publicUploads = array();
+
 	/**
 	 * @param list<array{path:string,relative:string}> $pages Original generated HTML files and exported paths.
 	 * @return list<string>
 	 */
 	public function collect( array $pages, string $destination, ?ExportBudget $budget = null ): array {
-		$budget     = $budget ?? new ExportBudget();
-		$this->seen = array();
-		$queue      = new SplQueue();
-		$warnings   = array();
+		$budget              = $budget ?? new ExportBudget();
+		$this->seen          = array();
+		$this->publicUploads = array();
+		$queue               = new SplQueue();
+		$warnings            = array();
 		foreach ( $pages as $page ) {
-			$html = file_get_contents( $page['path'] ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- generated page.
+			$budget->checkTime();
+			// Checked before reading: parsing builds the whole document in memory.
+			$size = @filesize( $page['path'] ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+			if ( false !== $size && $size > $budget->maxPageBytes() ) {
+				$warnings[] = 'Page ' . $page['relative'] . ': too large for asset discovery.';
+				continue;
+			}
+			$html = false === $size ? false : file_get_contents( $page['path'] ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- generated page.
 			if ( false === $html ) {
 				$warnings[] = 'Page ' . $page['relative'] . ': unable to read it for asset discovery.';
 				continue;
 			}
 			$page_url = $this->pageUrl( $page['relative'] );
-			foreach ( $this->htmlUrls( $html, $page_url ) as list( $url, $link_only ) ) {
-				$budget->addReference();
+			foreach ( $this->htmlUrls( $html, $page_url, $budget ) as list( $url, $link_only ) ) {
 				$queue->enqueue( array( $this->resolveUrl( $url, $page_url ), $link_only ) );
 			}
 		}
@@ -87,11 +97,12 @@ final class AssetCollector {
 
 	/**
 	 * URLs found in a document, each flagged true when it is only a link to a document
-	 * (a or area href) rather than a resource the page loads.
+	 * (a or area href) rather than a resource the page loads. Each new URL is counted
+	 * against the budget as it is found, so the limits stop the walk itself.
 	 *
 	 * @return list<array{0:string,1:bool}>
 	 */
-	private function htmlUrls( string $html, string $pageUrl ): array {
+	private function htmlUrls( string $html, string $pageUrl, ExportBudget $budget ): array {
 		$document = new DOMDocument( '1.0', 'UTF-8' );
 		$previous = libxml_use_internal_errors( true );
 		$loaded   = $document->loadHTML( '<?xml encoding="UTF-8">' . $html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD );
@@ -101,12 +112,23 @@ final class AssetCollector {
 			return array();
 		}
 
-		$urls = array();
+		$unique   = array();
+		$add      = static function ( string $url, bool $link ) use ( &$unique, $budget ): void {
+			$key = $url . ( $link ? '|link' : '|asset' );
+			if ( '' !== $url && ! isset( $unique[ $key ] ) ) {
+				$budget->addReference();
+				$unique[ $key ] = array( $url, $link );
+			}
+		};
+		$elements = 0;
 		foreach ( $document->getElementsByTagName( '*' ) as $element ) {
+			if ( 0 === ++$elements % 1000 ) {
+				$budget->checkTime();
+			}
 			$is_link = in_array( strtolower( $element->tagName ), array( 'a', 'area' ), true );
 			foreach ( array( 'src', 'href', 'poster', 'data' ) as $attribute ) {
 				if ( $element->hasAttribute( $attribute ) ) {
-					$urls[] = array( $element->getAttribute( $attribute ), $is_link && 'href' === $attribute );
+					$add( $element->getAttribute( $attribute ), $is_link && 'href' === $attribute );
 				}
 			}
 			foreach ( array( 'srcset', 'imagesrcset', 'data-srcset' ) as $attribute ) {
@@ -114,28 +136,22 @@ final class AssetCollector {
 					continue;
 				}
 				foreach ( explode( ',', $element->getAttribute( $attribute ) ) as $candidate ) {
-					$parts  = preg_split( '/\s+/', trim( $candidate ), 2 );
-					$urls[] = array( (string) ( $parts[0] ?? '' ), false );
+					$parts = preg_split( '/\s+/', trim( $candidate ), 2 );
+					$add( (string) ( $parts[0] ?? '' ), false );
 				}
 			}
 			if ( $element->hasAttribute( 'style' ) ) {
 				foreach ( $this->cssUrls( $element->getAttribute( 'style' ), $pageUrl ) as $url ) {
-					$urls[] = array( $url, false );
+					$add( $url, false );
 				}
 			}
 			if ( 'style' === strtolower( $element->tagName ) ) {
 				foreach ( $this->cssUrls( $element->textContent, $pageUrl ) as $url ) {
-					$urls[] = array( $url, false );
+					$add( $url, false );
 				}
 			}
 		}
 
-		$unique = array();
-		foreach ( $urls as $entry ) {
-			if ( '' !== $entry[0] ) {
-				$unique[ $entry[0] . ( $entry[1] ? '|link' : '|asset' ) ] = $entry;
-			}
-		}
 		return array_values( $unique );
 	}
 
@@ -206,6 +222,12 @@ final class AssetCollector {
 			}
 			throw new RuntimeException( 'Referenced file is not in a public asset directory.' );
 		}
+		if ( ! $this->uploadIsPublic( $source, $relative ) ) {
+			if ( $linkOnly ) {
+				return null;
+			}
+			throw new RuntimeException( 'Referenced upload is not readable by anonymous visitors.' );
+		}
 
 		return array(
 			'source'   => $source,
@@ -270,6 +292,41 @@ final class AssetCollector {
 			return ! $linkOnly && $this->isInside( $source, array( $storage . '/assets' ) );
 		}
 		return true;
+	}
+
+	/**
+	 * Being in the uploads directory does not make a file public: protected-media plugins
+	 * and server rules restrict some of them. An upload is only exported when an
+	 * anonymous request for it succeeds, unless the swpp_export_upload_is_public filter
+	 * decides first (true or false). Theme, plugin and core files are not checked.
+	 */
+	private function uploadIsPublic( string $source, string $relative ): bool {
+		$uploads    = wp_upload_dir();
+		$media      = empty( $uploads['error'] ) ? (string) $uploads['basedir'] : '';
+		$comparable = $this->comparable( $source );
+		if ( ! $this->isInside( $comparable, array( $media ) ) || $this->isInside( $comparable, array( dirname( ( new Storage() )->root() ) ) ) ) {
+			return true;
+		}
+		if ( isset( $this->publicUploads[ $source ] ) ) {
+			return $this->publicUploads[ $source ];
+		}
+
+		$url    = rtrim( home_url( '/' ), '/' ) . '/' . implode( '/', array_map( 'rawurlencode', explode( '/', $relative ) ) );
+		$public = apply_filters( 'swpp_export_upload_is_public', null, $source, $url );
+		if ( ! is_bool( $public ) ) {
+			// No cookies or credentials are sent, and redirects (often to a login page) fail.
+			$response = wp_safe_remote_head(
+				$url,
+				array(
+					'timeout'     => 10,
+					'redirection' => 0,
+					'user-agent'  => 'Static-Publisher/' . SWPP_VERSION,
+				)
+			);
+			$public   = ! is_wp_error( $response ) && 200 === (int) wp_remote_retrieve_response_code( $response );
+		}
+		$this->publicUploads[ $source ] = $public;
+		return $public;
 	}
 
 	/** @param list<string> $roots Directories; missing ones are ignored. */

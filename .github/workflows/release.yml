@@ -3,6 +3,7 @@ name: Release
 # Builds the free plugin package on every pull request and push to main, runs the
 # official Plugin Check on it, and on a v* tag attaches the ZIP to a GitHub release
 # and (once the plugin is approved and the SVN secrets exist) deploys to WordPress.org.
+# Actions are pinned to reviewed commits (version in the comment); update both together.
 
 on:
   push:
@@ -18,8 +19,10 @@ jobs:
     name: Package and Plugin Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
           php-version: "8.3"
           extensions: zip
@@ -31,10 +34,10 @@ jobs:
           mkdir -p build
           unzip -q dist/kobbaz-static-publisher-*.zip -d build
       - name: Plugin Check
-        uses: WordPress/plugin-check-action@v1
+        uses: WordPress/plugin-check-action@10857da14b6c2246d15402b3e69f777edcf8c12e # v1.1.9
         with:
           build-dir: build/kobbaz-static-publisher
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: kobbaz-static-publisher
           path: dist/*.zip
@@ -47,15 +50,17 @@ jobs:
     permissions:
       contents: write
     env:
-      SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
-      SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
+      # Only whether the secrets exist; the credentials themselves reach the deploy step alone.
+      SVN_CONFIGURED: ${{ secrets.SVN_USERNAME != '' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - name: Check tag matches plugin version
         run: |
           version=$(sed -n "s/^Stable tag:[[:space:]]*//p" plugins/kobbaz-static-publisher/readme.txt)
           test "v${version}" = "${GITHUB_REF_NAME}"
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: kobbaz-static-publisher
           path: dist
@@ -68,9 +73,11 @@ jobs:
           mkdir -p build
           unzip -q dist/kobbaz-static-publisher-*.zip -d build
       - name: WordPress.org deploy
-        if: ${{ env.SVN_USERNAME != '' }}
+        if: ${{ env.SVN_CONFIGURED == 'true' }}
         env:
+          SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
+          SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
           SLUG: kobbaz-static-publisher
           BUILD_DIR: build/kobbaz-static-publisher
           ASSETS_DIR: .wordpress-org
-        uses: 10up/action-wordpress-plugin-deploy@stable
+        uses: 10up/action-wordpress-plugin-deploy@54bd289b8525fd23a5c365ec369185f2966529c2 # 2.3.0

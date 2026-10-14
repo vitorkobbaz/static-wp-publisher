@@ -96,7 +96,7 @@ final class Worker {
 	}
 
 	private function handle( QueueJob $job ): PublishResult {
-		$result = $this->publisher->publish( $job->url );
+		$result = $this->publisher->publish( $job->url, fn(): bool => $this->queue->holdsLease( $job ) );
 		if ( $result->success ) {
 			$this->queue->complete( $job );
 		} elseif ( ! $result->retryable ) {
