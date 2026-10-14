@@ -205,7 +205,7 @@ final class StatusReport {
 		$type = get_post_type_object( $post->post_type );
 		return array(
 			'post_id'   => (int) $post->ID,
-			'title'     => '' !== $post->post_title ? $post->post_title : __( '(no title)', 'static-publisher' ),
+			'title'     => '' !== $post->post_title ? $post->post_title : __( '(no title)', 'kobbaz-static-publisher' ),
 			'type'      => null !== $type ? (string) $type->labels->singular_name : $post->post_type,
 			'url'       => $url,
 			'modified'  => (string) $post->post_modified_gmt,
@@ -220,8 +220,8 @@ final class StatusReport {
 		}
 		return array(
 			'post_id'   => 0,
-			'title'     => __( 'Home page', 'static-publisher' ),
-			'type'      => __( 'Home', 'static-publisher' ),
+			'title'     => __( 'Home page', 'kobbaz-static-publisher' ),
+			'type'      => __( 'Home', 'kobbaz-static-publisher' ),
 			'url'       => home_url( '/' ),
 			'modified'  => '',
 			'protected' => false,

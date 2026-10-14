@@ -71,10 +71,10 @@ final class PagesTable extends WP_List_Table {
 	public function get_columns(): array {
 		$columns = array(
 			'cb'      => '<input type="checkbox" />',
-			'title'   => __( 'Page', 'static-publisher' ),
-			'status'  => __( 'Status', 'static-publisher' ),
-			'type'    => __( 'Type', 'static-publisher' ),
-			'updated' => __( 'Last updated', 'static-publisher' ),
+			'title'   => __( 'Page', 'kobbaz-static-publisher' ),
+			'status'  => __( 'Status', 'kobbaz-static-publisher' ),
+			'type'    => __( 'Type', 'kobbaz-static-publisher' ),
+			'updated' => __( 'Last updated', 'kobbaz-static-publisher' ),
 		);
 		// A type column only helps when pages and posts (or custom types) are mixed.
 		$types = array_unique( array_map( static fn( array $row ): string => $row['type'], $this->listing()['rows'] ) );
@@ -87,8 +87,8 @@ final class PagesTable extends WP_List_Table {
 	/** @return array<string,string> */
 	protected function get_bulk_actions(): array {
 		return array(
-			'swpp-' . PageActions::REGENERATE => __( 'Update static copy', 'static-publisher' ),
-			'swpp-' . PageActions::VERIFY     => __( 'Test visitor version', 'static-publisher' ),
+			'swpp-' . PageActions::REGENERATE => __( 'Update static copy', 'kobbaz-static-publisher' ),
+			'swpp-' . PageActions::VERIFY     => __( 'Test visitor version', 'kobbaz-static-publisher' ),
 		);
 	}
 
@@ -117,14 +117,14 @@ final class PagesTable extends WP_List_Table {
 
 	public function no_items(): void {
 		$messages = array(
-			PageStatus::GROUP_STATIC    => __( 'No page has an up-to-date static copy yet.', 'static-publisher' ),
-			PageStatus::GROUP_PENDING   => __( 'Nothing is being updated right now.', 'static-publisher' ),
-			PageStatus::GROUP_ATTENTION => __( 'Nothing needs attention.', 'static-publisher' ),
-			PageStatus::GROUP_DYNAMIC   => __( 'Every page can have a static copy.', 'static-publisher' ),
-			PageStatus::GROUP_MISSING   => __( 'Every page has a static copy or a reason not to.', 'static-publisher' ),
+			PageStatus::GROUP_STATIC    => __( 'No page has an up-to-date static copy yet.', 'kobbaz-static-publisher' ),
+			PageStatus::GROUP_PENDING   => __( 'Nothing is being updated right now.', 'kobbaz-static-publisher' ),
+			PageStatus::GROUP_ATTENTION => __( 'Nothing needs attention.', 'kobbaz-static-publisher' ),
+			PageStatus::GROUP_DYNAMIC   => __( 'Every page can have a static copy.', 'kobbaz-static-publisher' ),
+			PageStatus::GROUP_MISSING   => __( 'Every page has a static copy or a reason not to.', 'kobbaz-static-publisher' ),
 		);
 		$search   = self::currentSearch();
-		echo esc_html( '' !== $search ? __( 'No pages match your search.', 'static-publisher' ) : ( $messages[ self::currentView() ] ?? __( 'No public pages found.', 'static-publisher' ) ) );
+		echo esc_html( '' !== $search ? __( 'No pages match your search.', 'kobbaz-static-publisher' ) : ( $messages[ self::currentView() ] ?? __( 'No public pages found.', 'kobbaz-static-publisher' ) ) );
 	}
 
 	/** @param Row $item */
@@ -140,7 +140,7 @@ final class PagesTable extends WP_List_Table {
 			'<label class="screen-reader-text" for="swpp-page-%1$d">%2$s</label><input type="checkbox" id="swpp-page-%1$d" name="post_ids[]" value="%1$d" />',
 			(int) $item['post_id'],
 			/* translators: %s: page title. */
-			esc_html( sprintf( __( 'Select %s', 'static-publisher' ), $item['title'] ) )
+			esc_html( sprintf( __( 'Select %s', 'kobbaz-static-publisher' ), $item['title'] ) )
 		);
 	}
 
@@ -182,11 +182,11 @@ final class PagesTable extends WP_List_Table {
 			return '';
 		}
 		$actions = array(
-			'view' => sprintf( '<a href="%1$s" target="_blank" rel="noopener noreferrer">%2$s</a>', esc_url( $item['url'] ), esc_html__( 'View', 'static-publisher' ) ),
+			'view' => sprintf( '<a href="%1$s" target="_blank" rel="noopener noreferrer">%2$s</a>', esc_url( $item['url'] ), esc_html__( 'View', 'kobbaz-static-publisher' ) ),
 		);
 		foreach ( array(
-			PageActions::REGENERATE => __( 'Update static copy', 'static-publisher' ),
-			PageActions::VERIFY     => __( 'Test visitor version', 'static-publisher' ),
+			PageActions::REGENERATE => __( 'Update static copy', 'kobbaz-static-publisher' ),
+			PageActions::VERIFY     => __( 'Test visitor version', 'kobbaz-static-publisher' ),
 		) as $action => $label ) {
 			$url                = wp_nonce_url(
 				add_query_arg(

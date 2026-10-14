@@ -1,6 +1,6 @@
 <?php
 /**
- * Plugin Name:       Static Publisher
+ * Plugin Name:       Kobbaz Static Publisher
  * Plugin URI:        https://static-publisher.vitorkobbaz.com
  * Description:       Generates and serves public WordPress pages as safe, automatically refreshed static HTML.
  * Version:           1.0.0
@@ -10,7 +10,7 @@
  * Author URI:        https://vitorkobbaz.com
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
- * Text Domain:       static-publisher
+ * Text Domain:       kobbaz-static-publisher
  *
  * @package StaticWPPublisher
  */

@@ -53,8 +53,8 @@ final class AdminPage {
 
 	public function menu(): void {
 		$this->hook = (string) add_menu_page(
-			__( 'Static Publisher', 'static-publisher' ),
-			__( 'Static Publisher', 'static-publisher' ),
+			__( 'Static Publisher', 'kobbaz-static-publisher' ),
+			__( 'Static Publisher', 'kobbaz-static-publisher' ),
 			'manage_options',
 			self::SLUG,
 			array( $this, 'render' ),
@@ -82,23 +82,23 @@ final class AdminPage {
 				'inProgress' => $counts['queued'] + $counts['running'],
 				'i18n'       => array(
 					/* translators: 1: pages ready, 2: pages that always use WordPress, 3: errors, 4: pages still waiting. */
-					'progress'     => __( 'Working… %1$d ready, %2$d WordPress only, %3$d errors, %4$d waiting.', 'static-publisher' ),
+					'progress'     => __( 'Working… %1$d ready, %2$d WordPress only, %3$d errors, %4$d waiting.', 'kobbaz-static-publisher' ),
 					/* translators: 1: pages ready, 2: pages that always use WordPress, 3: errors. */
-					'done'         => __( 'Done: %1$d static copies ready, %2$d pages always use WordPress, %3$d errors.', 'static-publisher' ),
+					'done'         => __( 'Done: %1$d static copies ready, %2$d pages always use WordPress, %3$d errors.', 'kobbaz-static-publisher' ),
 					/* translators: 1: pages ready, 2: pages waiting to retry. */
-					'retrying'     => __( 'Paused: %1$d static copies ready; %2$d page(s) will be retried automatically after an error.', 'static-publisher' ),
-					'failed'       => __( 'Stopped because the server returned an error. Reload the page and try again.', 'static-publisher' ),
-					'starting'     => __( 'Finding the pages of your site…', 'static-publisher' ),
+					'retrying'     => __( 'Paused: %1$d static copies ready; %2$d page(s) will be retried automatically after an error.', 'kobbaz-static-publisher' ),
+					'failed'       => __( 'Stopped because the server returned an error. Reload the page and try again.', 'kobbaz-static-publisher' ),
+					'starting'     => __( 'Finding the pages of your site…', 'kobbaz-static-publisher' ),
 					/* translators: 1: items done, 2: items selected. */
-					'bulkProgress' => __( 'Working on %1$d of %2$d selected pages…', 'static-publisher' ),
+					'bulkProgress' => __( 'Working on %1$d of %2$d selected pages…', 'kobbaz-static-publisher' ),
 					/* translators: 1: pages that succeeded, 2: pages with a warning, 3: pages that failed. */
-					'bulkDone'     => __( 'Done: %1$d OK, %2$d with warnings, %3$d failed. Reload the page to refresh the counters.', 'static-publisher' ),
-					'noSelection'  => __( 'Select at least one page first.', 'static-publisher' ),
-					'working'      => __( 'Working…', 'static-publisher' ),
-					'requestError' => __( 'The request failed. Reload the page and try again.', 'static-publisher' ),
-					'measuring'    => __( 'Testing… (about 5 seconds)', 'static-publisher' ),
-					'measure'      => __( 'Test this page', 'static-publisher' ),
-					'confirmPause' => __( 'Visitors will get normal WordPress pages until you resume. Pause static delivery?', 'static-publisher' ),
+					'bulkDone'     => __( 'Done: %1$d OK, %2$d with warnings, %3$d failed. Reload the page to refresh the counters.', 'kobbaz-static-publisher' ),
+					'noSelection'  => __( 'Select at least one page first.', 'kobbaz-static-publisher' ),
+					'working'      => __( 'Working…', 'kobbaz-static-publisher' ),
+					'requestError' => __( 'The request failed. Reload the page and try again.', 'kobbaz-static-publisher' ),
+					'measuring'    => __( 'Testing… (about 5 seconds)', 'kobbaz-static-publisher' ),
+					'measure'      => __( 'Test this page', 'kobbaz-static-publisher' ),
+					'confirmPause' => __( 'Visitors will get normal WordPress pages until you resume. Pause static delivery?', 'kobbaz-static-publisher' ),
 				),
 			)
 		);
@@ -106,7 +106,7 @@ final class AdminPage {
 
 	public function render(): void {
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'You are not allowed to manage static publication.', 'static-publisher' ) );
+			wp_die( esc_html__( 'You are not allowed to manage static publication.', 'kobbaz-static-publisher' ) );
 		}
 
 		require_once ABSPATH . 'wp-admin/includes/class-wp-list-table.php';
@@ -121,10 +121,10 @@ final class AdminPage {
 		?>
 		<div class="wrap swpp-admin">
 			<div class="swpp-title">
-				<h1 class="wp-heading-inline"><?php esc_html_e( 'Static Publisher', 'static-publisher' ); ?></h1>
+				<h1 class="wp-heading-inline"><?php esc_html_e( 'Static Publisher', 'kobbaz-static-publisher' ); ?></h1>
 				<?php $this->renderPrimaryAction( $listing, $fresh ); ?>
 			</div>
-			<p class="swpp-intro"><?php esc_html_e( 'Visitors who are not logged in get a saved static copy of each page. You, search, and forms always use live WordPress.', 'static-publisher' ); ?></p>
+			<p class="swpp-intro"><?php esc_html_e( 'Visitors who are not logged in get a saved static copy of each page. You, search, and forms always use live WordPress.', 'kobbaz-static-publisher' ); ?></p>
 			<?php $this->renderDelivery( $enabled ); ?>
 			<hr class="wp-header-end">
 			<?php $this->renderNotice(); ?>
@@ -142,14 +142,14 @@ final class AdminPage {
 					<p>
 						<?php
 						/* translators: %d: number of pages being updated. */
-						echo esc_html( sprintf( _n( '%d page is being updated in the background.', '%d pages are being updated in the background.', $pending, 'static-publisher' ), $pending ) );
+						echo esc_html( sprintf( _n( '%d page is being updated in the background.', '%d pages are being updated in the background.', $pending, 'kobbaz-static-publisher' ), $pending ) );
 						?>
 					</p>
 				</div>
 				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-swpp-generate="process" class="swpp-inline-form">
 					<input type="hidden" name="action" value="swpp_process_pending">
 					<?php wp_nonce_field( 'swpp_process_pending' ); ?>
-					<button type="submit" class="button"><?php esc_html_e( 'Update now', 'static-publisher' ); ?></button>
+					<button type="submit" class="button"><?php esc_html_e( 'Update now', 'kobbaz-static-publisher' ); ?></button>
 				</form>
 			</div>
 			<div class="swpp-progress" data-swpp-progress hidden>
@@ -158,19 +158,19 @@ final class AdminPage {
 			</div>
 
 			<?php if ( ! $fresh ) : ?>
-				<h2 class="swpp-section-title"><?php esc_html_e( 'Pages', 'static-publisher' ); ?></h2>
+				<h2 class="swpp-section-title"><?php esc_html_e( 'Pages', 'kobbaz-static-publisher' ); ?></h2>
 				<form method="get" data-swpp-table>
 					<input type="hidden" name="page" value="<?php echo esc_attr( self::SLUG ); ?>">
 					<input type="hidden" name="swpp_view" value="<?php echo esc_attr( PagesTable::currentView() ); ?>">
 					<?php $table->views(); ?>
-					<?php $table->search_box( __( 'Search pages', 'static-publisher' ), 'swpp-search' ); ?>
+					<?php $table->search_box( __( 'Search pages', 'kobbaz-static-publisher' ), 'swpp-search' ); ?>
 					<?php $table->display(); ?>
 				</form>
 				<?php if ( $listing['truncated'] ) : ?>
 					<p class="description">
 						<?php
 						/* translators: %d: maximum number of pages analysed. */
-						echo esc_html( sprintf( __( 'Showing the %d most recently modified pages. Counters and filters apply to these.', 'static-publisher' ), $listing['limit'] ) );
+						echo esc_html( sprintf( __( 'Showing the %d most recently modified pages. Counters and filters apply to these.', 'kobbaz-static-publisher' ), $listing['limit'] ) );
 						?>
 					</p>
 				<?php endif; ?>
@@ -180,7 +180,7 @@ final class AdminPage {
 			<?php $this->renderSpeedOptions(); ?>
 
 			<details class="swpp-details">
-				<summary><?php esc_html_e( 'Technical details', 'static-publisher' ); ?></summary>
+				<summary><?php esc_html_e( 'Technical details', 'kobbaz-static-publisher' ); ?></summary>
 				<?php $this->renderTechnical(); ?>
 			</details>
 
@@ -208,7 +208,7 @@ final class AdminPage {
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 		$ids = array_slice( array_values( array_unique( $ids ) ), 0, self::BULK_MAX );
 		if ( array() === $ids ) {
-			$this->redirect( __( 'Select at least one page first.', 'static-publisher' ), 'warning' );
+			$this->redirect( __( 'Select at least one page first.', 'kobbaz-static-publisher' ), 'warning' );
 		}
 
 		$actions = $this->pageActions();
@@ -229,7 +229,7 @@ final class AdminPage {
 		}
 		$this->redirect(
 			/* translators: 1: pages that succeeded, 2: pages with a warning, 3: pages that failed. */
-			sprintf( __( 'Done: %1$d OK, %2$d with warnings, %3$d failed.', 'static-publisher' ), $tally['ok'], $tally['warn'], $tally['fail'] ),
+			sprintf( __( 'Done: %1$d OK, %2$d with warnings, %3$d failed.', 'kobbaz-static-publisher' ), $tally['ok'], $tally['warn'], $tally['fail'] ),
 			$tally['fail'] > 0 ? 'warning' : 'success'
 		);
 	}
@@ -270,7 +270,7 @@ final class AdminPage {
 		$post_id = isset( $_POST['post_id'] ) ? absint( wp_unslash( $_POST['post_id'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified in authorize().
 		$result  = $this->pageActions()->run( PageActions::VERIFY, $post_id );
 		if ( null === $result ) {
-			$this->redirect( __( 'That page is not public content of this site.', 'static-publisher' ), 'error' );
+			$this->redirect( __( 'That page is not public content of this site.', 'kobbaz-static-publisher' ), 'error' );
 		}
 		// The result is shown in the summary; only failures need a notice.
 		if ( $result['ok'] ) {
@@ -293,10 +293,10 @@ final class AdminPage {
 		$settings['combine_css'] = $combine;
 		update_option( 'swpp_settings', $settings, false );
 		if ( $before['optimize'] === $optimize && $before['combine_css'] === $combine ) {
-			$this->redirect( __( 'Speed options unchanged.', 'static-publisher' ), 'info' );
+			$this->redirect( __( 'Speed options unchanged.', 'kobbaz-static-publisher' ), 'info' );
 		}
 		$this->inventory->enqueueAll();
-		$this->redirect( __( 'Speed options saved. Every static copy is being rebuilt in the background.', 'static-publisher' ) );
+		$this->redirect( __( 'Speed options saved. Every static copy is being rebuilt in the background.', 'kobbaz-static-publisher' ) );
 	}
 
 	public function toggleServing(): void {
@@ -305,7 +305,7 @@ final class AdminPage {
 		$settings            = is_array( $settings ) ? $settings : array();
 		$settings['enabled'] = empty( $settings['enabled'] );
 		update_option( 'swpp_settings', $settings, false );
-		$this->redirect( $settings['enabled'] ? __( 'Static delivery resumed. Visitors get the static copies again.', 'static-publisher' ) : '' );
+		$this->redirect( $settings['enabled'] ? __( 'Static delivery resumed. Visitors get the static copies again.', 'kobbaz-static-publisher' ) : '' );
 	}
 
 	private function singleAction( string $action ): void {
@@ -314,7 +314,7 @@ final class AdminPage {
 		$row     = $post_id >= 0 ? $this->report->rowFor( $post_id ) : null;
 		$result  = null !== $row ? $this->pageActions()->run( $action, $post_id ) : null;
 		if ( null === $row || null === $result ) {
-			$this->redirect( __( 'That page is not public content of this site.', 'static-publisher' ), 'error' );
+			$this->redirect( __( 'That page is not public content of this site.', 'kobbaz-static-publisher' ), 'error' );
 		}
 		$this->redirect( $row['title'] . ' — ' . $result['message'], $result['level'] );
 	}
@@ -324,7 +324,7 @@ final class AdminPage {
 		$pending = $this->queue->counts()['pending'];
 		$notice  = sprintf(
 			/* translators: 1: static copies ready, 2: pages that always use WordPress, 3: errors, 4: still waiting. */
-			__( '%1$d static copies ready, %2$d pages always use WordPress, %3$d errors. %4$d page(s) still waiting; click again to continue or let the background worker finish.', 'static-publisher' ),
+			__( '%1$d static copies ready, %2$d pages always use WordPress, %3$d errors. %4$d page(s) still waiting; click again to continue or let the background worker finish.', 'kobbaz-static-publisher' ),
 			$report->succeeded,
 			$report->skipped,
 			$report->failed,
@@ -343,13 +343,13 @@ final class AdminPage {
 	private function renderPrimaryAction( array $listing, bool $fresh ): void {
 		$broken = count( $listing['fix'] );
 		if ( $fresh ) {
-			$this->queueForm( 'swpp_generate_all', 'build', __( 'Create static copies', 'static-publisher' ), true );
+			$this->queueForm( 'swpp_generate_all', 'build', __( 'Create static copies', 'kobbaz-static-publisher' ), true );
 		} elseif ( $broken > 0 ) {
 			/* translators: %d: number of pages to fix. */
-			$this->queueForm( 'swpp_fix_pages', 'fix', sprintf( _n( 'Fix %d page', 'Fix %d pages', $broken, 'static-publisher' ), $broken ), true );
-			$this->queueForm( 'swpp_generate_all', 'build', __( 'Update all static copies', 'static-publisher' ), false );
+			$this->queueForm( 'swpp_fix_pages', 'fix', sprintf( _n( 'Fix %d page', 'Fix %d pages', $broken, 'kobbaz-static-publisher' ), $broken ), true );
+			$this->queueForm( 'swpp_generate_all', 'build', __( 'Update all static copies', 'kobbaz-static-publisher' ), false );
 		} else {
-			$this->queueForm( 'swpp_generate_all', 'build', __( 'Update all static copies', 'static-publisher' ), false );
+			$this->queueForm( 'swpp_generate_all', 'build', __( 'Update all static copies', 'kobbaz-static-publisher' ), false );
 		}
 	}
 
@@ -369,20 +369,20 @@ final class AdminPage {
 		<div class="swpp-delivery" data-swpp-serving="<?php echo $enabled ? 'on' : 'off'; ?>">
 			<span class="swpp-delivery__state">
 				<span class="swpp-dot<?php echo $enabled ? ' swpp-tone--good' : ''; ?>" aria-hidden="true"></span>
-				<?php echo $enabled ? esc_html__( 'Static delivery: On', 'static-publisher' ) : esc_html__( 'Static delivery: Paused', 'static-publisher' ); ?>
+				<?php echo $enabled ? esc_html__( 'Static delivery: On', 'kobbaz-static-publisher' ) : esc_html__( 'Static delivery: Paused', 'kobbaz-static-publisher' ); ?>
 			</span>
 			<?php if ( $enabled ) : ?>
 				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="swpp-inline-form" data-swpp-pause>
 					<input type="hidden" name="action" value="swpp_toggle_serving">
 					<?php wp_nonce_field( 'swpp_toggle_serving' ); ?>
-					<button type="submit" class="button-link"><?php esc_html_e( 'Pause', 'static-publisher' ); ?></button>
+					<button type="submit" class="button-link"><?php esc_html_e( 'Pause', 'kobbaz-static-publisher' ); ?></button>
 				</form>
 			<?php endif; ?>
 		</div>
 		<?php if ( ! $enabled ) : ?>
 			<div class="notice notice-warning inline swpp-paused">
-				<p><?php esc_html_e( 'Static delivery is paused. Visitors get normal WordPress pages.', 'static-publisher' ); ?></p>
-				<?php $this->actionButton( 'swpp_toggle_serving', __( 'Resume static delivery', 'static-publisher' ), 'button button-primary' ); ?>
+				<p><?php esc_html_e( 'Static delivery is paused. Visitors get normal WordPress pages.', 'kobbaz-static-publisher' ); ?></p>
+				<?php $this->actionButton( 'swpp_toggle_serving', __( 'Resume static delivery', 'kobbaz-static-publisher' ), 'button button-primary' ); ?>
 			</div>
 		<?php endif; ?>
 		<?php
@@ -396,10 +396,10 @@ final class AdminPage {
 				<p>
 					<?php
 					/* translators: %s: page title. */
-					echo esc_html( sprintf( __( '"%s" now has a password, but its old static copy is still public.', 'static-publisher' ), $page['title'] ) );
+					echo esc_html( sprintf( __( '"%s" now has a password, but its old static copy is still public.', 'kobbaz-static-publisher' ), $page['title'] ) );
 					?>
 				</p>
-				<?php $this->rowForm( 'swpp_' . PageActions::REGENERATE, $page['post_id'], __( 'Remove the public copy', 'static-publisher' ) ); ?>
+				<?php $this->rowForm( 'swpp_' . PageActions::REGENERATE, $page['post_id'], __( 'Remove the public copy', 'kobbaz-static-publisher' ) ); ?>
 			</div>
 			<?php
 		}
@@ -409,10 +409,10 @@ final class AdminPage {
 		?>
 		<section class="swpp-summary swpp-summary--intro" aria-labelledby="swpp-intro-title">
 			<div class="swpp-summary__coverage">
-				<h2 id="swpp-intro-title" class="swpp-summary__headline" data-swpp-headline><?php esc_html_e( 'Make your site faster for visitors', 'static-publisher' ); ?></h2>
-				<p class="swpp-summary__note"><?php esc_html_e( 'Static Publisher saves a ready-made copy of each public page and serves it to visitors who are not logged in. Copies update automatically when you edit. Nothing changes while you work in WordPress.', 'static-publisher' ); ?></p>
+				<h2 id="swpp-intro-title" class="swpp-summary__headline" data-swpp-headline><?php esc_html_e( 'Make your site faster for visitors', 'kobbaz-static-publisher' ); ?></h2>
+				<p class="swpp-summary__note"><?php esc_html_e( 'Static Publisher saves a ready-made copy of each public page and serves it to visitors who are not logged in. Copies update automatically when you edit. Nothing changes while you work in WordPress.', 'kobbaz-static-publisher' ); ?></p>
 				<div class="swpp-summary__cta">
-					<?php $this->queueForm( 'swpp_generate_all', 'build', __( 'Create static copies', 'static-publisher' ), true ); ?>
+					<?php $this->queueForm( 'swpp_generate_all', 'build', __( 'Create static copies', 'kobbaz-static-publisher' ), true ); ?>
 				</div>
 			</div>
 		</section>
@@ -431,20 +431,20 @@ final class AdminPage {
 
 		$headline = $enabled
 			/* translators: 1: pages delivered as static copies, 2: all pages. */
-			? sprintf( _n( '%1$s of %2$s page loads as fast static HTML', '%1$s of %2$s pages load as fast static HTML', $counts['all'], 'static-publisher' ), number_format_i18n( $listing['covered'] ), number_format_i18n( $counts['all'] ) )
+			? sprintf( _n( '%1$s of %2$s page loads as fast static HTML', '%1$s of %2$s pages load as fast static HTML', $counts['all'], 'kobbaz-static-publisher' ), number_format_i18n( $listing['covered'] ), number_format_i18n( $counts['all'] ) )
 			/* translators: 1: pages with a static copy, 2: all pages. */
-			: sprintf( _n( '%1$s of %2$s page has a static copy ready', '%1$s of %2$s pages have a static copy ready', $counts['all'], 'static-publisher' ), number_format_i18n( $listing['covered'] ), number_format_i18n( $counts['all'] ) );
+			: sprintf( _n( '%1$s of %2$s page has a static copy ready', '%1$s of %2$s pages have a static copy ready', $counts['all'], 'kobbaz-static-publisher' ), number_format_i18n( $listing['covered'] ), number_format_i18n( $counts['all'] ) );
 
 		$clauses = array();
 		$explain = array(
 			/* translators: %d: number of pages. */
-			PageStatus::GROUP_PENDING   => _n_noop( '%d is being updated.', '%d are being updated.', 'static-publisher' ),
+			PageStatus::GROUP_PENDING   => _n_noop( '%d is being updated.', '%d are being updated.', 'kobbaz-static-publisher' ),
 			/* translators: %d: number of pages. */
-			PageStatus::GROUP_ATTENTION => _n_noop( '%d needs attention.', '%d need attention.', 'static-publisher' ),
+			PageStatus::GROUP_ATTENTION => _n_noop( '%d needs attention.', '%d need attention.', 'kobbaz-static-publisher' ),
 			/* translators: %d: number of pages. */
-			PageStatus::GROUP_DYNAMIC   => _n_noop( '%d always uses WordPress (for example, password-protected).', '%d always use WordPress (for example, password-protected).', 'static-publisher' ),
+			PageStatus::GROUP_DYNAMIC   => _n_noop( '%d always uses WordPress (for example, password-protected).', '%d always use WordPress (for example, password-protected).', 'kobbaz-static-publisher' ),
 			/* translators: %d: number of pages. */
-			PageStatus::GROUP_MISSING   => _n_noop( '%d has no static copy yet.', '%d have no static copy yet.', 'static-publisher' ),
+			PageStatus::GROUP_MISSING   => _n_noop( '%d has no static copy yet.', '%d have no static copy yet.', 'kobbaz-static-publisher' ),
 		);
 		foreach ( $explain as $group => $noop ) {
 			if ( $counts[ $group ] > 0 ) {
@@ -452,7 +452,7 @@ final class AdminPage {
 					'<a href="%1$s" data-swpp-legend="%2$s">%3$s</a>',
 					esc_url( add_query_arg( 'swpp_view', $group, $this->pageUrl() ) ),
 					esc_attr( $group ),
-					esc_html( sprintf( translate_nooped_plural( $noop, $counts[ $group ], 'static-publisher' ), $counts[ $group ] ) )
+					esc_html( sprintf( translate_nooped_plural( $noop, $counts[ $group ], 'kobbaz-static-publisher' ), $counts[ $group ] ) )
 				);
 			}
 		}
@@ -482,12 +482,12 @@ final class AdminPage {
 					<?php
 					echo array() !== $clauses
 						? wp_kses_post( implode( ' ', $clauses ) )
-						: ( $static === $counts['all'] ? esc_html__( 'Every page is up to date.', 'static-publisher' ) : '' );
+						: ( $static === $counts['all'] ? esc_html__( 'Every page is up to date.', 'kobbaz-static-publisher' ) : '' );
 					?>
 				</p>
 			</div>
 			<div class="swpp-summary__speed">
-				<h3 class="swpp-summary__label"><?php esc_html_e( 'Server response time', 'static-publisher' ); ?></h3>
+				<h3 class="swpp-summary__label"><?php esc_html_e( 'Server response time', 'kobbaz-static-publisher' ); ?></h3>
 				<div class="swpp-speed" data-swpp-speed aria-live="polite">
 					<?php echo wp_kses_post( StatusPresenter::forCurrentSettings()->speedHtml( $last ) ); ?>
 				</div>
@@ -495,13 +495,13 @@ final class AdminPage {
 					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="swpp-speed__form" data-swpp-speed-form>
 						<input type="hidden" name="action" value="swpp_speed_check">
 						<?php wp_nonce_field( 'swpp_speed_check' ); ?>
-						<label for="swpp-speed-page"><?php esc_html_e( 'Page to test', 'static-publisher' ); ?></label>
+						<label for="swpp-speed-page"><?php esc_html_e( 'Page to test', 'kobbaz-static-publisher' ); ?></label>
 						<select id="swpp-speed-page" name="post_id">
 							<?php foreach ( $choices as $choice ) : ?>
 								<option value="<?php echo esc_attr( (string) $choice['post_id'] ); ?>" <?php selected( $current, $choice['post_id'] ); ?>><?php echo esc_html( $choice['title'] ); ?></option>
 							<?php endforeach; ?>
 						</select>
-						<button type="submit" class="button"><?php esc_html_e( 'Test this page', 'static-publisher' ); ?></button>
+						<button type="submit" class="button"><?php esc_html_e( 'Test this page', 'kobbaz-static-publisher' ); ?></button>
 					</form>
 				<?php endif; ?>
 				<?php echo wp_kses_post( StatusPresenter::methodHtml( $method ) ); ?>
@@ -519,19 +519,19 @@ final class AdminPage {
 			return;
 		}
 		$labels = array(
-			'pending' => __( 'Retrying', 'static-publisher' ),
-			'failed'  => __( 'Could not be created', 'static-publisher' ),
-			'skipped' => __( 'WordPress only', 'static-publisher' ),
+			'pending' => __( 'Retrying', 'kobbaz-static-publisher' ),
+			'failed'  => __( 'Could not be created', 'kobbaz-static-publisher' ),
+			'skipped' => __( 'WordPress only', 'kobbaz-static-publisher' ),
 		);
 		?>
-		<h2 class="swpp-section-title"><?php esc_html_e( 'Archive pages with problems', 'static-publisher' ); ?></h2>
-		<p class="description"><?php esc_html_e( 'Category, tag, and other archive pages whose latest static copy could not be created.', 'static-publisher' ); ?></p>
+		<h2 class="swpp-section-title"><?php esc_html_e( 'Archive pages with problems', 'kobbaz-static-publisher' ); ?></h2>
+		<p class="description"><?php esc_html_e( 'Category, tag, and other archive pages whose latest static copy could not be created.', 'kobbaz-static-publisher' ); ?></p>
 		<table class="widefat striped">
 			<thead>
 				<tr>
-					<th scope="col"><?php esc_html_e( 'Address', 'static-publisher' ); ?></th>
-					<th scope="col"><?php esc_html_e( 'Status', 'static-publisher' ); ?></th>
-					<th scope="col"><?php esc_html_e( 'Reason', 'static-publisher' ); ?></th>
+					<th scope="col"><?php esc_html_e( 'Address', 'kobbaz-static-publisher' ); ?></th>
+					<th scope="col"><?php esc_html_e( 'Status', 'kobbaz-static-publisher' ); ?></th>
+					<th scope="col"><?php esc_html_e( 'Reason', 'kobbaz-static-publisher' ); ?></th>
 				</tr>
 			</thead>
 			<tbody>
@@ -552,34 +552,34 @@ final class AdminPage {
 		$options = PageOptimizer::settings();
 		$summary = sprintf(
 			/* translators: 1: state of image and font optimization, 2: state of CSS combining. */
-			__( 'Images and fonts: %1$s · Combine CSS: %2$s', 'static-publisher' ),
-			$options['optimize'] ? __( 'on', 'static-publisher' ) : __( 'off', 'static-publisher' ),
-			$options['combine_css'] ? __( 'on', 'static-publisher' ) : __( 'off', 'static-publisher' )
+			__( 'Images and fonts: %1$s · Combine CSS: %2$s', 'kobbaz-static-publisher' ),
+			$options['optimize'] ? __( 'on', 'kobbaz-static-publisher' ) : __( 'off', 'kobbaz-static-publisher' ),
+			$options['combine_css'] ? __( 'on', 'kobbaz-static-publisher' ) : __( 'off', 'kobbaz-static-publisher' )
 		);
 		?>
 		<details class="swpp-details swpp-speed-options" data-swpp-speed-options>
-			<summary><?php esc_html_e( 'Speed options', 'static-publisher' ); ?> <span class="swpp-details__meta"><?php echo esc_html( $summary ); ?></span></summary>
+			<summary><?php esc_html_e( 'Speed options', 'kobbaz-static-publisher' ); ?> <span class="swpp-details__meta"><?php echo esc_html( $summary ); ?></span></summary>
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 				<input type="hidden" name="action" value="swpp_save_speed">
 				<?php wp_nonce_field( 'swpp_save_speed' ); ?>
-				<p class="swpp-intro"><?php esc_html_e( 'These changes apply only to the static copies visitors receive. Your WordPress pages are never modified.', 'static-publisher' ); ?></p>
+				<p class="swpp-intro"><?php esc_html_e( 'These changes apply only to the static copies visitors receive. Your WordPress pages are never modified.', 'kobbaz-static-publisher' ); ?></p>
 				<fieldset>
 					<label class="swpp-option">
 						<input type="checkbox" name="optimize" value="1" <?php checked( $options['optimize'] ); ?>>
 						<span>
-							<strong><?php esc_html_e( 'Optimize images and fonts', 'static-publisher' ); ?></strong>
-							<span class="swpp-option__help"><?php esc_html_e( 'Loads the main image first, delays images further down the page, adds missing image sizes to prevent layout jumps, and shows text while custom fonts load.', 'static-publisher' ); ?></span>
+							<strong><?php esc_html_e( 'Optimize images and fonts', 'kobbaz-static-publisher' ); ?></strong>
+							<span class="swpp-option__help"><?php esc_html_e( 'Loads the main image first, delays images further down the page, adds missing image sizes to prevent layout jumps, and shows text while custom fonts load.', 'kobbaz-static-publisher' ); ?></span>
 						</span>
 					</label>
 					<label class="swpp-option">
 						<input type="checkbox" name="combine_css" value="1" <?php checked( $options['combine_css'] ); ?>>
 						<span>
-							<strong><?php esc_html_e( 'Combine CSS files (experimental)', 'static-publisher' ); ?></strong>
-							<span class="swpp-option__help"><?php esc_html_e( 'Joins style files that load one after another into a single file, so the page can appear sooner. Check a few pages after turning it on. If anything looks different, turn it off: every copy is rebuilt automatically.', 'static-publisher' ); ?></span>
+							<strong><?php esc_html_e( 'Combine CSS files (experimental)', 'kobbaz-static-publisher' ); ?></strong>
+							<span class="swpp-option__help"><?php esc_html_e( 'Joins style files that load one after another into a single file, so the page can appear sooner. Check a few pages after turning it on. If anything looks different, turn it off: every copy is rebuilt automatically.', 'kobbaz-static-publisher' ); ?></span>
 						</span>
 					</label>
 				</fieldset>
-				<?php submit_button( __( 'Save and rebuild copies', 'static-publisher' ), 'secondary', 'submit', false ); ?>
+				<?php submit_button( __( 'Save and rebuild copies', 'kobbaz-static-publisher' ), 'secondary', 'submit', false ); ?>
 			</form>
 		</details>
 		<?php
@@ -591,16 +591,16 @@ final class AdminPage {
 		?>
 		<table class="widefat striped swpp-technical">
 			<tbody>
-				<tr><th scope="row"><?php esc_html_e( 'Static copies folder', 'static-publisher' ); ?></th><td><code><?php echo esc_html( $this->storage->publishedRoot() ); ?></code></td></tr>
-				<tr><th scope="row"><?php esc_html_e( 'Next background run', 'static-publisher' ); ?></th><td><?php echo false !== $next ? esc_html( (string) wp_date( 'Y-m-d H:i:s', $next ) ) : esc_html__( 'Not scheduled — configure WP-Cron or a real scheduler.', 'static-publisher' ); ?></td></tr>
+				<tr><th scope="row"><?php esc_html_e( 'Static copies folder', 'kobbaz-static-publisher' ); ?></th><td><code><?php echo esc_html( $this->storage->publishedRoot() ); ?></code></td></tr>
+				<tr><th scope="row"><?php esc_html_e( 'Next background run', 'kobbaz-static-publisher' ); ?></th><td><?php echo false !== $next ? esc_html( (string) wp_date( 'Y-m-d H:i:s', $next ) ) : esc_html__( 'Not scheduled — configure WP-Cron or a real scheduler.', 'kobbaz-static-publisher' ); ?></td></tr>
 				<tr>
-					<th scope="row"><?php esc_html_e( 'Job history', 'static-publisher' ); ?></th>
+					<th scope="row"><?php esc_html_e( 'Job history', 'kobbaz-static-publisher' ); ?></th>
 					<td>
 						<?php
 						echo esc_html(
 							sprintf(
 								/* translators: 1: waiting jobs, 2: running jobs, 3: failed jobs, 4: skipped jobs, 5: completed jobs. */
-								__( '%1$d waiting · %2$d running · %3$d failed · %4$d skipped · %5$d completed', 'static-publisher' ),
+								__( '%1$d waiting · %2$d running · %3$d failed · %4$d skipped · %5$d completed', 'kobbaz-static-publisher' ),
 								$counts['pending'],
 								$counts['running'],
 								$counts['failed'],
@@ -614,9 +614,9 @@ final class AdminPage {
 			</tbody>
 		</table>
 		<ul class="ul-disc">
-			<li><?php esc_html_e( 'Static copies are currently delivered through PHP, so WordPress still starts for each visit. Web-server rules that skip PHP entirely are planned and will make the gain much larger.', 'static-publisher' ); ?></li>
-			<li><?php esc_html_e( 'Page-builder templates (headers, footers, popups) are not pages; editing one updates every page.', 'static-publisher' ); ?></li>
-			<li><?php esc_html_e( 'WP-Cron can be late on low-traffic sites. Configure a real scheduler for precise background updates.', 'static-publisher' ); ?></li>
+			<li><?php esc_html_e( 'Static copies are currently delivered through PHP, so WordPress still starts for each visit. Web-server rules that skip PHP entirely are planned and will make the gain much larger.', 'kobbaz-static-publisher' ); ?></li>
+			<li><?php esc_html_e( 'Page-builder templates (headers, footers, popups) are not pages; editing one updates every page.', 'kobbaz-static-publisher' ); ?></li>
+			<li><?php esc_html_e( 'WP-Cron can be late on low-traffic sites. Configure a real scheduler for precise background updates.', 'kobbaz-static-publisher' ); ?></li>
 		</ul>
 		<?php
 	}
@@ -678,7 +678,7 @@ final class AdminPage {
 
 	private function authorize( string $action ): void {
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'You are not allowed to perform this action.', 'static-publisher' ) );
+			wp_die( esc_html__( 'You are not allowed to perform this action.', 'kobbaz-static-publisher' ) );
 		}
 		check_admin_referer( $action );
 	}

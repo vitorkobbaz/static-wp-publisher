@@ -66,13 +66,13 @@ final class ExportDownload {
 
 	public function handle(): void {
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'You are not allowed to download exports.', 'static-publisher' ), '', array( 'response' => 403 ) );
+			wp_die( esc_html__( 'You are not allowed to download exports.', 'kobbaz-static-publisher' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( self::ACTION );
 
 		$token = sanitize_key( wp_unslash( (string) ( $_GET['token'] ?? '' ) ) );
 		if ( 1 !== preg_match( self::TOKEN_PATTERN, $token ) ) {
-			wp_die( esc_html__( 'Invalid export download token.', 'static-publisher' ), '', array( 'response' => 400 ) );
+			wp_die( esc_html__( 'Invalid export download token.', 'kobbaz-static-publisher' ), '', array( 'response' => 400 ) );
 		}
 		$user_id = get_current_user_id();
 		$key     = $this->transientKey( $token, $user_id );
@@ -84,16 +84,16 @@ final class ExportDownload {
 			wp_die( esc_html( $error->getMessage() ), '', array( 'response' => 500 ) );
 		}
 		if ( null === $archive ) {
-			wp_die( esc_html__( 'This export download is unavailable or has expired.', 'static-publisher' ), '', array( 'response' => 404 ) );
+			wp_die( esc_html__( 'This export download is unavailable or has expired.', 'kobbaz-static-publisher' ), '', array( 'response' => 404 ) );
 		}
 		if ( headers_sent() ) {
-			wp_die( esc_html__( 'The archive cannot be downloaded because output has already started.', 'static-publisher' ), '', array( 'response' => 500 ) );
+			wp_die( esc_html__( 'The archive cannot be downloaded because output has already started.', 'kobbaz-static-publisher' ), '', array( 'response' => 500 ) );
 		}
 
 		$size   = filesize( $archive );
 		$stream = fopen( $archive, 'rb' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Streams a private ZIP; WP_Filesystem cannot stream.
 		if ( false === $size || false === $stream ) {
-			wp_die( esc_html__( 'The archive could not be opened for download.', 'static-publisher' ), '', array( 'response' => 500 ) );
+			wp_die( esc_html__( 'The archive could not be opened for download.', 'kobbaz-static-publisher' ), '', array( 'response' => 500 ) );
 		}
 
 		while ( ob_get_level() > 0 ) {
