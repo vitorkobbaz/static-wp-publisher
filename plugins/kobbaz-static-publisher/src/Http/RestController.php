@@ -134,7 +134,7 @@ final class RestController {
 	public function speedCheck( WP_REST_Request $request ): WP_REST_Response {
 		$row = $this->report->rowFor( absint( $request->get_param( 'post_id' ) ) );
 		if ( null === $row ) {
-			return new WP_REST_Response( array( 'message' => __( 'That page is not public content of this site.', 'static-publisher' ) ), 404 );
+			return new WP_REST_Response( array( 'message' => __( 'That page is not public content of this site.', 'kobbaz-static-publisher' ) ), 404 );
 		}
 		$result = ( new SpeedCheck( $this->verifier ) )->measure( $row['url'], $row['title'], $row['post_id'] );
 		return new WP_REST_Response(
@@ -162,7 +162,7 @@ final class RestController {
 		$action  = PageActions::VERIFY === $request->get_param( 'operation' ) ? PageActions::VERIFY : PageActions::REGENERATE;
 		$result  = ( new PageActions( new Worker( $this->queue, $this->publisher ), $this->report, $this->verifier ) )->run( $action, $post_id );
 		if ( null === $result ) {
-			return new WP_REST_Response( array( 'message' => __( 'That page is not public content of this site.', 'static-publisher' ) ), 404 );
+			return new WP_REST_Response( array( 'message' => __( 'That page is not public content of this site.', 'kobbaz-static-publisher' ) ), 404 );
 		}
 
 		$row       = $this->report->rowFor( $post_id );

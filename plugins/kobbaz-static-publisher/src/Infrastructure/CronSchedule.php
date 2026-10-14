@@ -17,7 +17,7 @@ final class CronSchedule {
 	public static function add( array $schedules ): array {
 		$schedules['swpp_every_minute'] = array(
 			'interval' => MINUTE_IN_SECONDS,
-			'display'  => __( 'Every minute (Static Publisher)', 'static-publisher' ),
+			'display'  => __( 'Every minute (Static Publisher)', 'kobbaz-static-publisher' ),
 		);
 		return $schedules;
 	}

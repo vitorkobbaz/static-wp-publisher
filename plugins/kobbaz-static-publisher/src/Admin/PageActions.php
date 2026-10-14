@@ -40,17 +40,17 @@ final class PageActions {
 	private function regenerate( string $url ): array {
 		$result = $this->worker->runOne( $url );
 		if ( null === $result ) {
-			return $this->outcome( false, 'warning', __( 'This page is already being updated. Try again in a moment.', 'static-publisher' ) );
+			return $this->outcome( false, 'warning', __( 'This page is already being updated. Try again in a moment.', 'kobbaz-static-publisher' ) );
 		}
 		if ( $result->success ) {
-			return $this->outcome( true, 'success', __( 'Static copy updated.', 'static-publisher' ) );
+			return $this->outcome( true, 'success', __( 'Static copy updated.', 'kobbaz-static-publisher' ) );
 		}
 		if ( ! $result->retryable ) {
 			/* translators: %s: reason the page cannot be static. */
-			return $this->outcome( true, 'info', sprintf( __( 'This page always uses live WordPress: %s', 'static-publisher' ), $result->message ) );
+			return $this->outcome( true, 'info', sprintf( __( 'This page always uses live WordPress: %s', 'kobbaz-static-publisher' ), $result->message ) );
 		}
 		/* translators: %s: error message. */
-		return $this->outcome( false, 'error', sprintf( __( 'The static copy could not be updated: %s It will be retried automatically.', 'static-publisher' ), $result->message ) );
+		return $this->outcome( false, 'error', sprintf( __( 'The static copy could not be updated: %s It will be retried automatically.', 'kobbaz-static-publisher' ), $result->message ) );
 	}
 
 	/**
@@ -63,18 +63,18 @@ final class PageActions {
 		$result = ( new SpeedCheck( $this->verifier ) )->measure( $url, $title, $post_id );
 		if ( '' !== $result['error'] ) {
 			/* translators: %s: error message. */
-			return $this->outcome( false, 'error', sprintf( __( 'Your server could not load its own page: %s', 'static-publisher' ), $result['error'] ) );
+			return $this->outcome( false, 'error', sprintf( __( 'Your server could not load its own page: %s', 'kobbaz-static-publisher' ), $result['error'] ) );
 		}
 		$live = StatusPresenter::seconds( (int) $result['dynamic_ms'] );
 		if ( ! $result['served_static'] || null === $result['static_ms'] ) {
 			/* translators: %s: response time, e.g. "0.58 s". */
-			return $this->outcome( true, 'warning', sprintf( __( 'Visitors get live WordPress for this page (%s). It has no static copy being delivered.', 'static-publisher' ), $live ), false );
+			return $this->outcome( true, 'warning', sprintf( __( 'Visitors get live WordPress for this page (%s). It has no static copy being delivered.', 'kobbaz-static-publisher' ), $live ), false );
 		}
 
 		$comparison = SpeedComparison::of( $result['static_ms'], $result['dynamic_ms'] );
 		$message    = sprintf(
 			/* translators: 1: static response time, 2: WordPress response time. */
-			__( 'Visitors get the static copy: %1$s instead of %2$s through WordPress.', 'static-publisher' ),
+			__( 'Visitors get the static copy: %1$s instead of %2$s through WordPress.', 'kobbaz-static-publisher' ),
 			StatusPresenter::seconds( $result['static_ms'] ),
 			$live
 		);

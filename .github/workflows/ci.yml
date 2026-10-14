@@ -39,8 +39,8 @@ jobs:
       - run: composer check
       - name: Plugin headers
         run: |
-          grep -Eq "Requires PHP:[[:space:]]+8\.3" plugins/static-publisher/static-publisher.php
-          grep -Eq "Requires at least:[[:space:]]+6\.5" plugins/static-publisher/static-publisher.php
+          grep -Eq "Requires PHP:[[:space:]]+8\.3" plugins/kobbaz-static-publisher/kobbaz-static-publisher.php
+          grep -Eq "Requires at least:[[:space:]]+6\.5" plugins/kobbaz-static-publisher/kobbaz-static-publisher.php
 
   js:
     runs-on: ubuntu-latest

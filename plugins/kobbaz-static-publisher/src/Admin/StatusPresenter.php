@@ -37,43 +37,43 @@ final class StatusPresenter {
 	public function describe( PageStatus $status ): array {
 		return match ( $status->key ) {
 			PageStatus::STATIC_COPY => array(
-				'label' => $this->servingEnabled ? __( 'Static', 'static-publisher' ) : __( 'Static copy ready', 'static-publisher' ),
+				'label' => $this->servingEnabled ? __( 'Static', 'kobbaz-static-publisher' ) : __( 'Static copy ready', 'kobbaz-static-publisher' ),
 				'tone'  => 'good',
 			),
 			PageStatus::UPDATING    => array(
-				'label' => __( 'Updating', 'static-publisher' ),
+				'label' => __( 'Updating', 'kobbaz-static-publisher' ),
 				'tone'  => 'info',
 			),
 			PageStatus::QUEUED      => array(
-				'label' => __( 'Waiting to be created', 'static-publisher' ),
+				'label' => __( 'Waiting to be created', 'kobbaz-static-publisher' ),
 				'tone'  => 'info',
 			),
 			PageStatus::GENERATING  => array(
-				'label' => __( 'Being created', 'static-publisher' ),
+				'label' => __( 'Being created', 'kobbaz-static-publisher' ),
 				'tone'  => 'info',
 			),
 			PageStatus::RETRYING    => array(
-				'label' => __( 'Retrying after an error', 'static-publisher' ),
+				'label' => __( 'Retrying after an error', 'kobbaz-static-publisher' ),
 				'tone'  => 'warn',
 			),
 			PageStatus::STALE       => array(
-				'label' => __( 'Outdated static copy', 'static-publisher' ),
+				'label' => __( 'Outdated static copy', 'kobbaz-static-publisher' ),
 				'tone'  => 'warn',
 			),
 			PageStatus::EXPOSED     => array(
-				'label' => __( 'Protected page still public', 'static-publisher' ),
+				'label' => __( 'Protected page still public', 'kobbaz-static-publisher' ),
 				'tone'  => 'bad',
 			),
 			PageStatus::ERROR       => array(
-				'label' => __( 'Could not be created', 'static-publisher' ),
+				'label' => __( 'Could not be created', 'kobbaz-static-publisher' ),
 				'tone'  => 'bad',
 			),
 			PageStatus::DYNAMIC     => array(
-				'label' => __( 'WordPress only', 'static-publisher' ),
+				'label' => __( 'WordPress only', 'kobbaz-static-publisher' ),
 				'tone'  => 'neutral',
 			),
 			default                 => array(
-				'label' => __( 'Not created yet', 'static-publisher' ),
+				'label' => __( 'Not created yet', 'kobbaz-static-publisher' ),
 				'tone'  => 'neutral',
 			),
 		};
@@ -112,22 +112,22 @@ final class StatusPresenter {
 	/** "just now" under a minute, otherwise "5 mins ago". */
 	public static function ago( int $timestamp ): string {
 		if ( time() - $timestamp < MINUTE_IN_SECONDS ) {
-			return __( 'just now', 'static-publisher' );
+			return __( 'just now', 'kobbaz-static-publisher' );
 		}
 		/* translators: %s: human-readable time difference, e.g. "5 mins". */
-		return sprintf( __( '%s ago', 'static-publisher' ), human_time_diff( $timestamp, time() ) );
+		return sprintf( __( '%s ago', 'kobbaz-static-publisher' ), human_time_diff( $timestamp, time() ) );
 	}
 
 	/** Milliseconds as seconds with two decimals ("0.30 s"). */
 	public static function seconds( int $milliseconds ): string {
 		/* translators: %s: duration in seconds, e.g. "0.30". */
-		return sprintf( __( '%s s', 'static-publisher' ), number_format_i18n( $milliseconds / 1000, 2 ) );
+		return sprintf( __( '%s s', 'kobbaz-static-publisher' ), number_format_i18n( $milliseconds / 1000, 2 ) );
 	}
 
 	/** "2× faster." / "2.5× faster." */
 	public static function factorLabel( float $factor ): string {
 		/* translators: %s: speed-up factor, e.g. "12" or "2.5". */
-		return sprintf( __( '%s× faster.', 'static-publisher' ), number_format_i18n( $factor, fmod( $factor, 1.0 ) > 0 ? 1 : 0 ) );
+		return sprintf( __( '%s× faster.', 'kobbaz-static-publisher' ), number_format_i18n( $factor, fmod( $factor, 1.0 ) > 0 ? 1 : 0 ) );
 	}
 
 	/**
@@ -153,38 +153,38 @@ final class StatusPresenter {
 	 */
 	public function speedHtml( ?array $last ): string {
 		if ( null === $last ) {
-			return '<p class="swpp-speed__verdict">' . esc_html__( 'Not tested yet', 'static-publisher' ) . '</p>'
-				. '<p class="swpp-speed__lead">' . esc_html__( 'Pick a page and compare how fast visitors get it as a static copy and through WordPress.', 'static-publisher' ) . '</p>';
+			return '<p class="swpp-speed__verdict">' . esc_html__( 'Not tested yet', 'kobbaz-static-publisher' ) . '</p>'
+				. '<p class="swpp-speed__lead">' . esc_html__( 'Pick a page and compare how fast visitors get it as a static copy and through WordPress.', 'kobbaz-static-publisher' ) . '</p>';
 		}
 
 		$page = sprintf(
 			'<p class="swpp-speed__page">%1$s <a href="%2$s" target="_blank" rel="noopener noreferrer">%3$s</a> · %4$s</p>',
-			esc_html__( 'Page tested:', 'static-publisher' ),
+			esc_html__( 'Page tested:', 'kobbaz-static-publisher' ),
 			esc_url( $last['url'] ),
 			esc_html( $last['label'] ),
 			/* translators: %s: relative time, e.g. "just now" or "5 mins ago". */
-			esc_html( sprintf( __( 'tested %s', 'static-publisher' ), self::ago( $last['measured_at'] ) ) )
+			esc_html( sprintf( __( 'tested %s', 'kobbaz-static-publisher' ), self::ago( $last['measured_at'] ) ) )
 		);
 
 		if ( '' !== $last['error'] ) {
-			return '<p class="swpp-speed__verdict">' . esc_html__( 'The test could not run', 'static-publisher' ) . '</p>' . $page
-				. '<p class="swpp-speed__lead">' . esc_html__( 'Your server could not reach its own address. Some hosts block this; try again later or ask your host.', 'static-publisher' ) . '</p>'
-				. '<details class="swpp-speed__error"><summary>' . esc_html__( 'Error details', 'static-publisher' ) . '</summary><p>' . esc_html( $last['error'] ) . '</p></details>';
+			return '<p class="swpp-speed__verdict">' . esc_html__( 'The test could not run', 'kobbaz-static-publisher' ) . '</p>' . $page
+				. '<p class="swpp-speed__lead">' . esc_html__( 'Your server could not reach its own address. Some hosts block this; try again later or ask your host.', 'kobbaz-static-publisher' ) . '</p>'
+				. '<details class="swpp-speed__error"><summary>' . esc_html__( 'Error details', 'kobbaz-static-publisher' ) . '</summary><p>' . esc_html( $last['error'] ) . '</p></details>';
 		}
 
 		if ( ! $last['served_static'] || null === $last['static_ms'] ) {
-			return '<p class="swpp-speed__verdict">' . esc_html__( 'No static copy delivered', 'static-publisher' ) . '</p>' . $page
+			return '<p class="swpp-speed__verdict">' . esc_html__( 'No static copy delivered', 'kobbaz-static-publisher' ) . '</p>' . $page
 				. $this->barsHtml( null, (int) $last['dynamic_ms'] )
-				. '<p class="swpp-speed__lead">' . esc_html__( 'Visitors got live WordPress. Create the static copy of this page, turn static delivery on, and test again to compare.', 'static-publisher' ) . '</p>';
+				. '<p class="swpp-speed__lead">' . esc_html__( 'Visitors got live WordPress. Create the static copy of this page, turn static delivery on, and test again to compare.', 'kobbaz-static-publisher' ) . '</p>';
 		}
 
 		$comparison = SpeedComparison::of( $last['static_ms'], $last['dynamic_ms'] );
 		$faster     = SpeedComparison::FASTER === $comparison->verdict;
 		$verdict    = $faster
 			/* translators: %s: speed-up sentence, e.g. "2× faster.". */
-			? sprintf( __( 'Visitors get it %s', 'static-publisher' ), self::factorLabel( (float) $comparison->factor ) )
-			: __( 'About as fast as WordPress', 'static-publisher' );
-		$note = $faster ? '' : '<p class="swpp-speed__lead">' . esc_html__( 'This page is already quick to build, so the gain is small.', 'static-publisher' ) . '</p>';
+			? sprintf( __( 'Visitors get it %s', 'kobbaz-static-publisher' ), self::factorLabel( (float) $comparison->factor ) )
+			: __( 'About as fast as WordPress', 'kobbaz-static-publisher' );
+		$note = $faster ? '' : '<p class="swpp-speed__lead">' . esc_html__( 'This page is already quick to build, so the gain is small.', 'kobbaz-static-publisher' ) . '</p>';
 
 		return '<p class="swpp-speed__verdict">' . esc_html( $verdict ) . '</p>' . $page
 			. $this->barsHtml( $last['static_ms'], (int) $last['dynamic_ms'] ) . $note;
@@ -192,16 +192,16 @@ final class StatusPresenter {
 
 	/** How the test works and what it is not. */
 	public static function methodHtml( string $url ): string {
-		return '<details class="swpp-method"><summary>' . esc_html__( 'How is this measured?', 'static-publisher' ) . '</summary>'
+		return '<details class="swpp-method"><summary>' . esc_html__( 'How is this measured?', 'kobbaz-static-publisher' ) . '</summary>'
 			. '<p>' . esc_html(
 				sprintf(
 					/* translators: %d: number of requests of each kind. */
-					__( 'Static Publisher asks your own server for the page %d times the way a visitor gets it, and the same number of times forcing WordPress to build it. It shows the typical (median) time of each.', 'static-publisher' ),
+					__( 'Static Publisher asks your own server for the page %d times the way a visitor gets it, and the same number of times forcing WordPress to build it. It shows the typical (median) time of each.', 'kobbaz-static-publisher' ),
 					SpeedCheck::SAMPLES
 				)
 			) . '</p>'
-			. '<p>' . esc_html__( 'This is how quickly your server starts answering. It is not a Google PageSpeed score and does not include images or scripts loading in the visitor\'s browser.', 'static-publisher' ) . '</p>'
-			. '<p><a href="' . esc_url( 'https://pagespeed.web.dev/analysis?url=' . rawurlencode( $url ) ) . '" target="_blank" rel="noopener noreferrer">' . esc_html__( 'Test the full page load with PageSpeed Insights', 'static-publisher' ) . '<span class="screen-reader-text"> ' . esc_html__( '(opens in a new tab)', 'static-publisher' ) . '</span><span aria-hidden="true"> ↗</span></a></p>'
+			. '<p>' . esc_html__( 'This is how quickly your server starts answering. It is not a Google PageSpeed score and does not include images or scripts loading in the visitor\'s browser.', 'kobbaz-static-publisher' ) . '</p>'
+			. '<p><a href="' . esc_url( 'https://pagespeed.web.dev/analysis?url=' . rawurlencode( $url ) ) . '" target="_blank" rel="noopener noreferrer">' . esc_html__( 'Test the full page load with PageSpeed Insights', 'kobbaz-static-publisher' ) . '<span class="screen-reader-text"> ' . esc_html__( '(opens in a new tab)', 'kobbaz-static-publisher' ) . '</span><span aria-hidden="true"> ↗</span></a></p>'
 			. '</details>';
 	}
 
@@ -210,9 +210,9 @@ final class StatusPresenter {
 		$scale = max( 1, $dynamic_ms, (int) $static_ms );
 		$rows  = array();
 		if ( null !== $static_ms ) {
-			$rows[] = array( __( 'Static copy', 'static-publisher' ), $static_ms, 'good' );
+			$rows[] = array( __( 'Static copy', 'kobbaz-static-publisher' ), $static_ms, 'good' );
 		}
-		$rows[] = array( __( 'WordPress', 'static-publisher' ), $dynamic_ms, 'neutral' );
+		$rows[] = array( __( 'WordPress', 'kobbaz-static-publisher' ), $dynamic_ms, 'neutral' );
 
 		$html = '<dl class="swpp-bars">';
 		foreach ( $rows as list( $label, $ms, $tone ) ) {
@@ -230,12 +230,12 @@ final class StatusPresenter {
 	/** @return array<string,string> Tab labels by view key. */
 	public static function viewLabels(): array {
 		return array(
-			'all'                       => __( 'All', 'static-publisher' ),
-			PageStatus::GROUP_STATIC    => __( 'Static', 'static-publisher' ),
-			PageStatus::GROUP_PENDING   => __( 'Updating', 'static-publisher' ),
-			PageStatus::GROUP_ATTENTION => __( 'Needs attention', 'static-publisher' ),
-			PageStatus::GROUP_DYNAMIC   => __( 'WordPress only', 'static-publisher' ),
-			PageStatus::GROUP_MISSING   => __( 'Not created yet', 'static-publisher' ),
+			'all'                       => __( 'All', 'kobbaz-static-publisher' ),
+			PageStatus::GROUP_STATIC    => __( 'Static', 'kobbaz-static-publisher' ),
+			PageStatus::GROUP_PENDING   => __( 'Updating', 'kobbaz-static-publisher' ),
+			PageStatus::GROUP_ATTENTION => __( 'Needs attention', 'kobbaz-static-publisher' ),
+			PageStatus::GROUP_DYNAMIC   => __( 'WordPress only', 'kobbaz-static-publisher' ),
+			PageStatus::GROUP_MISSING   => __( 'Not created yet', 'kobbaz-static-publisher' ),
 		);
 	}
 }

@@ -29,14 +29,14 @@ jobs:
       - name: Unpack for Plugin Check
         run: |
           mkdir -p build
-          unzip -q dist/static-publisher-*.zip -d build
+          unzip -q dist/kobbaz-static-publisher-*.zip -d build
       - name: Plugin Check
         uses: WordPress/plugin-check-action@v1
         with:
-          build-dir: build/static-publisher
+          build-dir: build/kobbaz-static-publisher
       - uses: actions/upload-artifact@v4
         with:
-          name: static-publisher
+          name: kobbaz-static-publisher
           path: dist/*.zip
 
   release:
@@ -53,11 +53,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check tag matches plugin version
         run: |
-          version=$(sed -n "s/^Stable tag:[[:space:]]*//p" plugins/static-publisher/readme.txt)
+          version=$(sed -n "s/^Stable tag:[[:space:]]*//p" plugins/kobbaz-static-publisher/readme.txt)
           test "v${version}" = "${GITHUB_REF_NAME}"
       - uses: actions/download-artifact@v4
         with:
-          name: static-publisher
+          name: kobbaz-static-publisher
           path: dist
       - name: GitHub release
         env:
@@ -66,11 +66,11 @@ jobs:
       - name: Unpack for WordPress.org
         run: |
           mkdir -p build
-          unzip -q dist/static-publisher-*.zip -d build
+          unzip -q dist/kobbaz-static-publisher-*.zip -d build
       - name: WordPress.org deploy
         if: ${{ env.SVN_USERNAME != '' }}
         env:
-          SLUG: static-publisher
-          BUILD_DIR: build/static-publisher
+          SLUG: kobbaz-static-publisher
+          BUILD_DIR: build/kobbaz-static-publisher
           ASSETS_DIR: .wordpress-org
         uses: 10up/action-wordpress-plugin-deploy@stable

@@ -91,7 +91,7 @@ add_filter(
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
 	final class SWPP_E2E_Command {
-		private const CORE_PLUGIN = 'static-publisher/static-publisher.php';
+		private const CORE_PLUGIN = 'kobbaz-static-publisher/kobbaz-static-publisher.php';
 
 		private const UPGRADE_PAGE_PREFIX = 'swpp-e2e-upgrade-';
 

@@ -19,7 +19,7 @@
   },
   "autoload": {
     "psr-4": {
-      "SWPP\\Core\\": "plugins/static-publisher/src/"
+      "SWPP\\Core\\": "plugins/kobbaz-static-publisher/src/"
     }
   },
   "autoload-dev": {
