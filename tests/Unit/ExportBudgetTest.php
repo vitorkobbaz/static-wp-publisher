@@ -61,5 +61,7 @@ final class ExportBudgetTest extends TestCase {
 		$budget = new ExportBudget( array( 'max_file_bytes' => 0 ) );
 		self::assertSame( 1, $budget->maxFileBytes() );
 		self::assertSame( ExportBudget::DEFAULTS['max_file_bytes'], ( new ExportBudget() )->maxFileBytes() );
+		self::assertSame( ExportBudget::DEFAULTS['max_page_bytes'], ( new ExportBudget() )->maxPageBytes() );
+		self::assertSame( 1, ( new ExportBudget( array( 'max_page_bytes' => -5 ) ) )->maxPageBytes() );
 	}
 }

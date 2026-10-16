@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace SWPP\Core;
 
+use Throwable;
 use SWPP\Core\Admin\AdminPage;
 use SWPP\Core\Application\Invalidator;
 use SWPP\Core\Application\Inventory;
@@ -48,6 +49,11 @@ final class Plugin {
 		$queue     = new Queue( $database );
 		$publisher = new Publisher( new Renderer(), $storage, $database, new PageOptimizer( new LocalAssetResolver( $storage ) ) );
 		$inventory = new Inventory( $queue );
+		try {
+			$storage->maybeMigrate();
+		} catch ( Throwable $error ) {
+			error_log( 'Static Publisher: unable to migrate storage: ' . $error->getMessage() ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+		}
 
 		add_filter( 'cron_schedules', array( CronSchedule::class, 'add' ) );
 		add_action( 'swpp_process_queue', array( $this, 'processQueue' ) );

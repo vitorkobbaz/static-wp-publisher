@@ -36,9 +36,12 @@ final class LocalServer {
 			return;
 		}
 
-		$request_uri = sanitize_text_field( wp_unslash( (string) ( $_SERVER['REQUEST_URI'] ?? '/' ) ) );
-		$query       = (string) wp_parse_url( $request_uri, PHP_URL_QUERY );
-		$ignored     = array_values( array_map( 'strval', (array) apply_filters( 'swpp_ignored_query_parameters', QueryPolicy::TRACKING_PARAMETERS ) ) );
+		$request_uri = $this->requestUri();
+		if ( null === $request_uri ) {
+			return;
+		}
+		$query   = (string) wp_parse_url( $request_uri, PHP_URL_QUERY );
+		$ignored = array_values( array_map( 'strval', (array) apply_filters( 'swpp_ignored_query_parameters', QueryPolicy::TRACKING_PARAMETERS ) ) );
 		if ( ! QueryPolicy::isCacheable( $query, $ignored ) ) {
 			return;
 		}
@@ -68,14 +71,28 @@ final class LocalServer {
 		}
 
 		$home        = wp_parse_url( home_url( '/' ) );
-		$request_uri = sanitize_text_field( wp_unslash( (string) ( $_SERVER['REQUEST_URI'] ?? '/' ) ) );
-		if ( empty( $home['scheme'] ) || empty( $home['host'] ) ) {
+		$request_uri = $this->requestUri();
+		if ( null === $request_uri || empty( $home['scheme'] ) || empty( $home['host'] ) ) {
 			return false;
 		}
 		$port = isset( $home['port'] ) ? ':' . (int) $home['port'] : '';
 		$url  = $home['scheme'] . '://' . $home['host'] . $port . $request_uri;
 
 		return hash_equals( hash_hmac( 'sha256', $url, wp_salt( 'auth' ) ), $provided );
+	}
+
+	/**
+	 * The request URI exactly as received. It must not pass through a text sanitizer:
+	 * sanitize_text_field() strips percent-encoded octets, which can collapse a Unicode
+	 * slug onto another route's file or break the render signature. The value is only
+	 * parsed as a URL and mapped by UrlPath, which rejects unsafe segments.
+	 */
+	private function requestUri(): ?string {
+		$uri = wp_unslash( (string) ( $_SERVER['REQUEST_URI'] ?? '/' ) ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Validated below; see the method comment.
+		if ( '' === $uri || '/' !== $uri[0] || 1 === preg_match( '/[\x00-\x20\x7F]/', $uri ) ) {
+			return null;
+		}
+		return $uri;
 	}
 
 	/**

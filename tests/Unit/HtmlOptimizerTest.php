@@ -22,6 +22,8 @@ final class HtmlOptimizerTest extends TestCase {
 	/** @var list<string> */
 	public array $stored = array();
 
+	public int $probes = 0;
+
 	private function assets( array $css = array() ): OptimizerAssets {
 		$test = $this;
 		return new class( $css, $test ) implements OptimizerAssets {
@@ -33,6 +35,7 @@ final class HtmlOptimizerTest extends TestCase {
 			}
 
 			public function imageSize( string $url ): ?array {
+				++$this->test->probes;
 				return str_starts_with( $url, 'https://example.com/wp-content/uploads/' ) ? array( 640, 480 ) : null;
 			}
 
@@ -100,6 +103,19 @@ final class HtmlOptimizerTest extends TestCase {
 		$out = ( new HtmlOptimizer() )->optimize( self::page( '<link rel="stylesheet" href="' . $sheet . '">', $body ), new OptimizerOptions(), $this->assets( $css ) );
 
 		self::assertSame( 2, substr_count( $out, 'rel="preload"' ) );
+	}
+
+	public function test_image_files_are_read_once_and_only_up_to_the_page_limit(): void {
+		$body = str_repeat( '<img src="' . self::SITE . '/wp-content/uploads/same.png" alt="">', 500 );
+		for ( $i = 0; $i < HtmlOptimizer::MAX_IMAGE_PROBES_PER_PAGE + 50; ++$i ) {
+			$body .= '<img src="' . self::SITE . '/wp-content/uploads/n' . $i . '.png" alt="">';
+		}
+		$out = ( new HtmlOptimizer() )->optimize( self::page( '', $body ), new OptimizerOptions(), $this->assets() );
+
+		self::assertSame( HtmlOptimizer::MAX_IMAGE_PROBES_PER_PAGE, $this->probes );
+		self::assertSame( 500, preg_match_all( '~same\.png" alt=""[^>]* width="640" height="480">~', $out ) );
+		self::assertMatchesRegularExpression( '~n98\.png" alt="" loading="lazy" decoding="async" width="640" height="480">~', $out );
+		self::assertMatchesRegularExpression( '~n99\.png" alt="" loading="lazy" decoding="async">~', $out );
 	}
 
 	public function test_inline_font_faces_swap_and_other_css_is_untouched(): void {

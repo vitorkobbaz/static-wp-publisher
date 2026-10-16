@@ -20,6 +20,7 @@ final class ExportBudget {
 		'max_files'       => 50000,
 		'max_references'  => 200000,
 		'max_file_bytes'  => 104857600,
+		'max_page_bytes'  => 16777216,
 		'max_total_bytes' => 2147483648,
 		'max_seconds'     => 600,
 	);
@@ -44,6 +45,11 @@ final class ExportBudget {
 
 	public function maxFileBytes(): int {
 		return $this->limits['max_file_bytes'];
+	}
+
+	/** Largest generated page parsed for asset discovery. */
+	public function maxPageBytes(): int {
+		return $this->limits['max_page_bytes'];
 	}
 
 	public function addPage(): void {
