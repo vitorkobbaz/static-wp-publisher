@@ -31,7 +31,7 @@
     "syntax": "php tools/php-syntax.php",
     "test": "phpunit",
     "lint": "phpcs",
-    "analyse": "phpstan analyse --memory-limit=1G --debug",
+    "analyse": "phpstan analyse --memory-limit=2G --debug -vvv",
     "check": ["@syntax", "@lint", "@analyse", "@test"]
   },
   "config": {
